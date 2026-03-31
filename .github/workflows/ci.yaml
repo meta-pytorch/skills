@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: pre-commit/action@v3.0.1
+
+  validate-skill-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed skills
+        id: detect
+        run: |
+          CHANGED_SKILLS=$(git diff --name-only origin/main...HEAD \
+            | grep '^skills/' \
+            | cut -d'/' -f2 \
+            | sort -u \
+            | grep -v '.gitkeep' || true)
+          echo "skills=$CHANGED_SKILLS" >> "$GITHUB_OUTPUT"
+          if [ -n "$CHANGED_SKILLS" ]; then
+            echo "has_skills=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_skills=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate skill structure
+        if: steps.detect.outputs.has_skills == 'true'
+        run: |
+          EXIT_CODE=0
+          for SKILL in ${{ steps.detect.outputs.skills }}; do
+            echo "::group::Validating $SKILL"
+
+            if [ ! -f "skills/$SKILL/SKILL.md" ]; then
+              echo "::error::skills/$SKILL/SKILL.md is missing"
+              EXIT_CODE=1
+            fi
+
+            if [ -f "skills/$SKILL/SKILL.md" ]; then
+              FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "skills/$SKILL/SKILL.md")
+              if [ -z "$FRONTMATTER" ]; then
+                echo "::error::skills/$SKILL/SKILL.md is missing YAML frontmatter"
+                EXIT_CODE=1
+              fi
+
+              NAME_IN_YAML=$(echo "$FRONTMATTER" | grep '^name:' | sed 's/name: *//')
+              if [ "$NAME_IN_YAML" != "$SKILL" ]; then
+                echo "::error::name in frontmatter ('$NAME_IN_YAML') does not match directory name ('$SKILL')"
+                EXIT_CODE=1
+              fi
+
+              if ! echo "$FRONTMATTER" | grep -q '^description:'; then
+                echo "::error::skills/$SKILL/SKILL.md is missing required 'description' field"
+                EXIT_CODE=1
+              fi
+            fi
+
+            if ! grep -q "\"$SKILL\"" .claude-plugin/marketplace.json; then
+              echo "::warning::Skill '$SKILL' is not registered in .claude-plugin/marketplace.json"
+            fi
+
+            echo "::endgroup::"
+          done
+          exit $EXIT_CODE
