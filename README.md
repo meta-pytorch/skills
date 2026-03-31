@@ -10,21 +10,36 @@ npx skills add meta-pytorch/pt_skills
 
 ## Structure
 
-Each skill lives in `skills/<skill-name>/` with a `SKILL.md`:
-
 ```
-skills/
-└── my-skill/
-    ├── SKILL.md          # Required — skill definition
-    └── references/       # Optional — supporting docs
+pt_skills/
+├── .claude-plugin/
+│   └── marketplace.json      # Skill registry metadata
+├── skills/
+│   └── my-skill/
+│       ├── SKILL.md           # Required — skill definition
+│       ├── references/        # Optional — detailed docs
+│       ├── scripts/           # Optional — helper scripts
+│       └── assets/            # Optional — templates, resources
+├── CONTRIBUTING.md
+├── LICENSE
+└── README.md
 ```
 
-`SKILL.md` uses YAML frontmatter:
+## SKILL.md Format
+
+Each skill is a markdown file with YAML frontmatter following the [Agent Skills spec](https://agentskills.io/specification):
 
 ```yaml
 ---
-name: my-skill
-description: What this does and when to use it.
+name: my-skill                    # Required. Lowercase, hyphens, digits. Must match directory name.
+description: >-                   # Required. What it does AND when to use it. Max 1024 chars.
+  Debug torch.compile graph breaks
+  and guard failures. Use when
+  encountering recompilation issues.
+license: BSD-3-Clause             # Optional.
+metadata:                         # Optional.
+  author: pytorch
+  version: "1.0"
 ---
 
 # My Skill
