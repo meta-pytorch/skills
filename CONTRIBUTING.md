@@ -1,4 +1,4 @@
-# Contributing to pt_skills
+# Contributing to skills
 
 ## Adding a Skill
 
@@ -57,7 +57,7 @@ Keep `SKILL.md` under 500 lines (~5000 tokens). Move detailed references to sepa
 ## Testing Locally
 
 ```bash
-npx skills add ./path/to/pt_skills
+npx skills add ./path/to/skills
 ```
 
 Or symlink directly:

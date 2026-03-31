@@ -5,13 +5,13 @@ AI coding skills for PyTorch development. Skills are structured prompts that tea
 ## Install
 
 ```bash
-npx skills add meta-pytorch/pt_skills
+npx skills add meta-pytorch/skills
 ```
 
 ## Structure
 
 ```
-pt_skills/
+skills/
 ├── .claude-plugin/
 │   └── marketplace.json      # Skill registry metadata
 ├── skills/
