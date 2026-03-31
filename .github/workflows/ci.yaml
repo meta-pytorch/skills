@@ -19,6 +19,16 @@ jobs:
           python-version: "3.12"
       - uses: pre-commit/action@v3.0.1
 
+  validate-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate plugin manifests
+        run: python scripts/validate_plugin.py
+
   validate-skill-pr:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'

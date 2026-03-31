@@ -13,14 +13,8 @@
       "name": "pytorch-skills",
       "description": "Skills for debugging, profiling, authoring, and triaging PyTorch code",
       "source": "./",
-      "strict": false,
-      "skills": [
-        {
-          "name": "agents-are-coming",
-          "description": "A dummy skill that announces the arrival of agents",
-          "skill_file": "skills/agents-are-coming/SKILL.md"
-        }
-      ]
+      "category": "development",
+      "homepage": "https://github.com/meta-pytorch/skills"
     }
   ]
 }
