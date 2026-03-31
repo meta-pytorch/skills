@@ -1,4 +1,4 @@
-# pt_skills
+# Skills
 
 AI coding skills for PyTorch development. Skills are structured prompts that teach AI agents (Claude Code, Cursor, Copilot) how to perform PyTorch-specific tasks like debugging `torch.compile`, authoring operators, profiling, and triaging issues.
 
