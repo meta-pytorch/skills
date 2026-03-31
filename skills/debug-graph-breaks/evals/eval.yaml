@@ -1,0 +1,72 @@
+eval_version: "1"
+skill_name: "debug-graph-breaks"
+skill_path: "skills/debug-graph-breaks/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "bartmodel_fullgraph_graph_breaks"
+    description: >
+      Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BartModel
+      compiled with torch.compile, producing a working fixed script.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("facebook/bart-base")
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+
+      dummy_input = {
+          "input_ids": torch.randint(0, 1000, (1, 32)),
+          "attention_mask": torch.ones(1, 32, dtype=torch.long),
+      }
+      output = compiled_model(**dummy_input)
+      ```
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current working directory.
+
+      To run python, make sure you first activate the pytorch-3.12 conda environment with `conda activate pytorch-3.12`.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible implementations.
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed
+      context, examples, and fix suggestions.
+    tags:
+      - "smoke"
+      - "transformers"
+      - "fullgraph"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-graph-breaks"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Agent runs the script with TORCH_LOGS='graph_breaks' or fullgraph=True to detect graph breaks"
+          - "Agent identifies the source of at least one graph break in the user code or transformers library"
+          - "Agent explains the root cause of the graph break and why Dynamo cannot trace it"
+          - "Agent produces a fixed_model.py script that either compiles with fullgraph=True
+            or has fewer graph breaks than the original"
+        quality_factors:
+          - factor: "Accuracy — correctly identifies the cause of the graph break and
+              explains why Dynamo cannot trace it"
+            weight: 0.2
+          - factor: "Actionability — provides concrete fix strategies with working code examples"
+            weight: 0.2
+          - factor: "Graph break reduction — the fixed script has fewer graph breaks or
+              achieves fullgraph compilation"
+            weight: 0.5
+          - factor: "Documentation use — references the graph break documentation website
+              or GB type pages when explaining the break"
+            weight: 0.1

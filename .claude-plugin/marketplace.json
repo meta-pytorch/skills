@@ -1,0 +1,20 @@
+{
+  "name": "skills",
+  "owner": {
+    "name": "PyTorch Team",
+    "email": "pytorch@meta.com"
+  },
+  "metadata": {
+    "description": "AI coding skills for PyTorch development",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "pytorch-skills",
+      "description": "Skills for debugging, profiling, authoring, and triaging PyTorch code",
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/meta-pytorch/skills"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+eval_version: "1"
+skill_name: "agents-are-coming"
+skill_path: "skills/agents-are-coming/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "natural_prompt"
+    description: "A natural question about agents triggers the skill to respond with the catchphrase."
+    user_message: "What's up with agents these days?"
+    tags:
+      - "smoke"
+      - "prompt_only"
+    deterministic_checks:
+      - type: "output_contains_ci"
+        value: "agents are coming"
+      - type: "skill_invoked"
+        skill: "agents-are-coming"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Response must contain the phrase 'agents are coming'"
+        quality_factors:
+          - factor: "Enthusiasm"
+            weight: 1.0

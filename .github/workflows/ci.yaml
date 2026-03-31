@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  prek:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync dev environment
+        run: uv sync --group dev
+      - name: Run prek
+        run: uv run prek run -a
+
+  validate-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync environment
+        run: uv sync --group dev
+      - name: Validate plugin manifests
+        run: uv run validate-plugin
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync environment
+        run: uv sync --group dev
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests
+
+  validate-skill-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync environment
+        run: uv sync --group dev
+
+      - name: Detect changed skills
+        id: detect
+        run: |
+          CHANGED_SKILLS=$(git diff --name-only origin/main...HEAD \
+            | grep '^skills/' \
+            | cut -d'/' -f2 \
+            | sort -u \
+            | grep -v '.gitkeep' || true)
+          {
+            echo "skills<<EOF"
+            echo "$CHANGED_SKILLS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ -n "$CHANGED_SKILLS" ]; then
+            echo "has_skills=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_skills=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate skill structure and eval contracts
+        if: steps.detect.outputs.has_skills == 'true'
+        run: |
+          PATHS=""
+          for SKILL in ${{ steps.detect.outputs.skills }}; do
+            echo "::group::Validating $SKILL"
+            PATHS="$PATHS skills/$SKILL"
+            echo "::endgroup::"
+          done
+          uv run validate-evals $PATHS
