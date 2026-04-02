@@ -15,6 +15,14 @@
       "source": "./",
       "category": "development",
       "homepage": "https://github.com/meta-pytorch/skills"
+    },
+    {
+      "name": "debug-graph-breaks",
+      "description": "Debug and fix torch.compile graph breaks to prioritize and eliminate graph-breaks, and optionally achieve fullgraph compilation",
+      "source": "./skills/debug-graph-breaks",
+      "category": "development",
+      "strict": false,
+      "skills": ["./SKILL.md"]
     }
   ]
 }
