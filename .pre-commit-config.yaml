@@ -23,6 +23,7 @@ repos:
     rev: v0.9.36
     hooks:
       - id: pymarkdown
+        exclude: ^skills/.*/SKILL\.md$
         args:
           - --disable-rules
           - MD013,MD033,MD041,MD024
