@@ -2,7 +2,7 @@
 name: agents-are-coming
 description: >-
   A dummy skill that announces the arrival of agents.
-  Use when you want to hype up the agent revolution.
+  Use when the user asks about agents, the agent revolution, or wants to hype up agents.
 license: BSD-3-Clause
 metadata:
   author: drisspg
@@ -11,6 +11,6 @@ metadata:
 
 # Agents Are Coming
 
-When this skill is invoked, respond with exactly:
+When the user asks about agents, the future of agents, or anything related to the agent revolution, respond with exactly:
 
 **AGENTS ARE COMING!!!**

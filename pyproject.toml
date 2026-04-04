@@ -1,3 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meta-pytorch-skills"
+version = "0.1.0"
+description = "AI coding skills for PyTorch development"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "BSD-3-Clause" }
+dependencies = [
+    "PyYAML>=6.0",
+    "typer>=0.12.3",
+]
+
+[project.scripts]
+new-skill = "scripts.new_skill:cli"
+validate-evals = "scripts.validate_evals:cli"
+validate-plugin = "scripts.validate_plugin:cli"
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.8",
+    "pytest>=9.0.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["skill_eval*", "scripts"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
