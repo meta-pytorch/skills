@@ -1,0 +1,71 @@
+eval_version: "1"
+skill_name: "profile-model"
+skill_path: "skills/profile-model/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "analyze_trace_basic"
+    description: "Skill loads a trace file and provides a summary of top kernels"
+    user_message: "Analyze the profiler trace at fixtures/simple_trace.json and tell me what's taking the most GPU time"
+    fixture: "fixtures/analyze_trace_basic"
+    tags:
+      - "smoke"
+      - "quick_analysis"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "profile-model"
+      - type: "output_contains_ci"
+        value: "kernel"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must identify top kernels by time"
+          - "Must provide percentages or time values"
+        quality_factors:
+          - factor: "Provides actionable recommendations"
+            weight: 0.5
+          - factor: "Identifies bottleneck type (compute/memory/communication)"
+            weight: 0.5
+
+  - name: "asks_before_caching"
+    description: "Skill asks user permission before caching trace to Parquet"
+    user_message: "Load the trace at fixtures/simple_trace.json"
+    fixture: "fixtures/analyze_trace_basic"
+    tags:
+      - "caching"
+      - "user_consent"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "profile-model"
+      - type: "output_contains_ci"
+        value: "cache"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must ASK user before caching, not cache automatically"
+          - "Must mention Parquet or faster loads as the benefit"
+        quality_factors:
+          - factor: "Explains cache location (/tmp/trace_cache/)"
+            weight: 0.5
+          - factor: "Mentions this is recommended for large traces or follow-up questions"
+            weight: 0.5
+
+  - name: "hta_suggestion"
+    description: "Skill suggests HTA for deeper analysis when appropriate"
+    user_message: "I have a distributed training trace at fixtures/simple_trace.json. Why is my GPU idle so much?"
+    fixture: "fixtures/analyze_trace_basic"
+    tags:
+      - "hta"
+      - "deep_analysis"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "profile-model"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must mention HTA or Holistic Trace Analysis as an option for deeper analysis"
+        quality_factors:
+          - factor: "Explains what HTA can provide (idle breakdown, critical path, etc.)"
+            weight: 1.0
