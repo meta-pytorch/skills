@@ -77,7 +77,6 @@ def build_claude_command(
 ) -> list[str]:
     command = [
         "claude",
-        "--dangerously-disable-osx-sandbox",
         "-p",
         prompt,
         "--model",
@@ -89,6 +88,9 @@ def build_claude_command(
         "bypassPermissions",
         "--no-session-persistence",
     ]
+    # Only add macOS sandbox flag on macOS
+    if sys.platform == "darwin":
+        command.insert(1, "--dangerously-disable-osx-sandbox")
     if skill_enabled:
         command.extend(["--plugin-dir", str(repo_root)])
     return command
