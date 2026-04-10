@@ -1,6 +1,5 @@
 ---
 name: debug-graph-breaks
-disable-model-invocation: true
 description: Debug and fix torch.compile graph breaks to prioritize and eliminate graph-breaks, and optionally achieve fullgraph compilation
 
 ---
@@ -15,7 +14,7 @@ Diagnose and eliminate `torch.compile` graph breaks by running the script, readi
 ### Overview
 When this skill is invoked, help the user find, understand, and fix graph breaks in their `torch.compile`d code. The workflow has three phases: **Detect**, **Diagnose**, **Fix**.
 
-The graph break documentation website at https://meta-pytorch.org/compile-graph-break-site/ has detailed pages for each known graph break type. When the user encounters a specific graph break (e.g., GB0059), fetch the corresponding page (e.g., `https://meta-pytorch.org/compile-graph-break-site/gb/gb0059.html`) to get detailed context, examples, and fix suggestions specific to that break.
+The graph break documentation website at https://meta-pytorch.org/compile-graph-break-site/ has detailed pages for each known graph break type. When the user encounters a specific graph break (e.g., GB0059), fetch the corresponding page (e.g., `https://meta-pytorch.org/compile-graph-break-site/gb/gb0059.html`) to get detailed context, examples, and fix suggestions specific to that break. If the user provides a local path to a clone of the graph break website repository, read the documentation files directly from that directory instead.
 
 ### Phase 1: Detect — Find the graph breaks
 
@@ -72,7 +71,7 @@ For each graph break found, do the following:
 
 1. **Parse the graph break reason.** Extract the GB type string (e.g., "Failed to trace builtin operator", "Unsupported Tensor.item() call with capture_scalar_outputs=False") and the GB documentation URL from the output.
 
-2. **Fetch the graph break documentation page.** Use the URL from the log output (e.g., `https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0059.html`, alternatively internet may not be available and so the user should also be able to provide a local direcetory instead) to get detailed information, examples, and suggested fixes for that specific graph break type.
+2. **Fetch the graph break documentation page.** Use the URL from the log output (e.g., `https://meta-pytorch.github.io/compile-graph-break-site/gb/gb0059.html`) to get detailed information, examples, and suggested fixes for that specific graph break type. If a local clone of the graph break site was provided, read the corresponding file from the local directory instead.
 
 3. **Classify the graph break** using the hint categories from the log output:
    - **USER_ERROR**: The user's code has a bug that also fails in eager mode. Verify by running the script without `torch.compile`.
@@ -95,6 +94,29 @@ For each graph break found, do the following:
 ### Phase 3: Fix — Eliminate graph breaks
 
 For each graph break, apply a fix based on its type. Always read the user's code before making changes and then make changes directly.
+
+#### Fixing graph breaks in third-party libraries (e.g., HuggingFace transformers)
+
+When graph breaks originate in a third-party library (not the user's code), the user cannot directly modify the library. Instead:
+
+1. **Inspect the library source.** If the user provides the path to the installed package (e.g., the `transformers` site-packages directory), read the relevant source files to understand the problematic code and its call chain.
+
+2. **Subclass to override.** Create a subclass of the model that overrides the method causing the graph break with a compile-compatible implementation. This avoids modifying the library and is portable:
+```python
+from transformers import BartModel
+
+class CompilableBartModel(BartModel):
+    def _override_problematic_method(self, *args, **kwargs):
+        # Compile-compatible reimplementation
+        ...
+
+model = CompilableBartModel(config)
+compiled_model = torch.compile(model, fullgraph=True)
+```
+
+3. **Verify with `fullgraph=True`.** After applying the subclass fix, re-run with `fullgraph=True` to confirm all graph breaks are resolved.
+
+This approach is preferred over monkey-patching because it creates a self-contained, reusable fix.
 
 #### Escape hatches (compile-safe alternatives)
 
