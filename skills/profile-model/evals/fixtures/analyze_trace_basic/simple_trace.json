@@ -1,0 +1,21 @@
+{
+  "traceEvents": [
+    {"name": "ampere_sgemm_128x64_tn", "cat": "kernel", "ph": "X", "ts": 1000, "dur": 4500, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "ampere_sgemm_128x64_tn", "cat": "kernel", "ph": "X", "ts": 6000, "dur": 4500, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "ampere_sgemm_128x64_tn", "cat": "kernel", "ph": "X", "ts": 11000, "dur": 4500, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "volta_nccl_reduce_scatter_kernel", "cat": "kernel", "ph": "X", "ts": 16000, "dur": 2800, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "volta_nccl_reduce_scatter_kernel", "cat": "kernel", "ph": "X", "ts": 19500, "dur": 2800, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "elementwise_kernel", "cat": "kernel", "ph": "X", "ts": 23000, "dur": 1000, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "elementwise_kernel", "cat": "kernel", "ph": "X", "ts": 24500, "dur": 1000, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "elementwise_kernel", "cat": "kernel", "ph": "X", "ts": 26000, "dur": 1000, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "void at::native::vectorized_elementwise_kernel", "cat": "kernel", "ph": "X", "ts": 27500, "dur": 500, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "void at::native::vectorized_elementwise_kernel", "cat": "kernel", "ph": "X", "ts": 28500, "dur": 500, "pid": 0, "tid": 7, "args": {"device": 0, "stream": 7}},
+    {"name": "aten::mm", "cat": "cpu_op", "ph": "X", "ts": 500, "dur": 15000, "pid": 0, "tid": 1, "args": {}},
+    {"name": "aten::add", "cat": "cpu_op", "ph": "X", "ts": 16000, "dur": 500, "pid": 0, "tid": 1, "args": {}},
+    {"name": "aten::mul", "cat": "cpu_op", "ph": "X", "ts": 17000, "dur": 400, "pid": 0, "tid": 1, "args": {}},
+    {"name": "cudaLaunchKernel", "cat": "cuda_runtime", "ph": "X", "ts": 800, "dur": 50, "pid": 0, "tid": 1, "args": {}},
+    {"name": "cudaLaunchKernel", "cat": "cuda_runtime", "ph": "X", "ts": 5800, "dur": 50, "pid": 0, "tid": 1, "args": {}},
+    {"name": "cudaMemcpyAsync", "cat": "cuda_runtime", "ph": "X", "ts": 29500, "dur": 200, "pid": 0, "tid": 1, "args": {}}
+  ],
+  "displayTimeUnit": "us"
+}
