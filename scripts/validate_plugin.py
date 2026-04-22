@@ -1,4 +1,4 @@
-"""Validate .claude-plugin/ manifests and cross-check source and shipped skill trees."""
+"""Validate .claude-plugin manifests and cross-check generated skill artifacts."""
 
 from __future__ import annotations
 
@@ -12,6 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_DIR = ROOT / ".claude-plugin"
 SOURCE_SKILLS_DIR = ROOT / "skills-with-evals"
 SHIPPED_SKILLS_DIR = ROOT / "skills"
+GENERATED_PLUGIN_DIR = ROOT / "claude-plugin-dist"
+GENERATED_PLUGIN_MANIFEST = GENERATED_PLUGIN_DIR / "marketplace.json"
+GENERATED_PLUGIN_SKILLS_DIR = GENERATED_PLUGIN_DIR / "skills"
+EXPECTED_MARKETPLACE_SOURCE = "./claude-plugin-dist"
 
 
 def load_json(path: Path) -> object:
@@ -66,32 +70,32 @@ def validate_marketplace(path: Path) -> list[str]:
     return errors
 
 
-def validate_plugin_json(path: Path) -> list[str]:
+def validate_plugin_json(path: Path, skill_root_base: Path = ROOT) -> list[str]:
     errors: list[str] = []
     data = load_json(path)
     if not isinstance(data, dict):
-        return ["plugin.json: top-level document must be an object"]
+        return [f"{path.name}: top-level document must be an object"]
 
     for field in ("name", "description", "skills"):
         if field not in data:
-            errors.append(f"plugin.json: missing required field '{field}'")
+            errors.append(f"{path.name}: missing required field '{field}'")
 
     skills = data.get("skills")
     if not isinstance(skills, list):
-        errors.append("plugin.json: 'skills' must be an array of paths")
+        errors.append(f"{path.name}: 'skills' must be an array of paths")
         return errors
 
     if not skills:
-        errors.append("plugin.json: 'skills' must not be empty")
+        errors.append(f"{path.name}: 'skills' must not be empty")
         return errors
 
     for index, skill_path in enumerate(skills):
-        prefix = f"plugin.json skills[{index}]"
+        prefix = f"{path.name} skills[{index}]"
         if not isinstance(skill_path, str) or not skill_path.strip():
             errors.append(f"{prefix}: skill path must be a non-empty string")
             continue
 
-        resolved_skill_path = resolve_skill_root(skill_path)
+        resolved_skill_path = resolve_skill_root(skill_path, skill_root_base)
         if not resolved_skill_path.exists():
             errors.append(f"{prefix}: skill path {skill_path!r} does not exist")
             continue
@@ -110,7 +114,8 @@ def validate_skills_consistency(marketplace_path: Path, plugin_path: Path) -> li
     if not isinstance(marketplace, dict) or not isinstance(plugin, dict):
         return ["Cannot validate manifest consistency until both manifests parse as objects"]
 
-    marketplace_plugins = set()
+    plugin_name = plugin.get("name", "")
+    plugin_entry = None
     for index, entry in enumerate(marketplace.get("plugins", [])):
         if not isinstance(entry, dict):
             errors.append(f"marketplace.json plugins[{index}]: plugin entry must be an object")
@@ -119,13 +124,25 @@ def validate_skills_consistency(marketplace_path: Path, plugin_path: Path) -> li
         if not isinstance(name, str) or not name:
             errors.append(f"marketplace.json plugins[{index}]: missing required field 'name'")
             continue
-        marketplace_plugins.add(name)
+        if name == plugin_name:
+            plugin_entry = entry
 
-    plugin_name = plugin.get("name", "")
-    if plugin_name and plugin_name not in marketplace_plugins:
+    if plugin_name and plugin_entry is None:
         errors.append(f"plugin.json name '{plugin_name}' not found in marketplace.json plugins")
+    elif isinstance(plugin_entry, dict):
+        if plugin_entry.get("source") != EXPECTED_MARKETPLACE_SOURCE:
+            errors.append(
+                "marketplace.json plugin "
+                f"'{plugin_name}' must use source {EXPECTED_MARKETPLACE_SOURCE!r}"
+            )
+        for field in ("description", "version", "author"):
+            if field in plugin_entry and plugin_entry.get(field) != plugin.get(field):
+                errors.append(
+                    f"marketplace.json plugin '{plugin_name}' field '{field}' does not match "
+                    f".claude-plugin/plugin.json"
+                )
 
-    skill_roots = resolve_plugin_skill_roots(plugin)
+    skill_roots = resolve_plugin_skill_roots(plugin, ROOT)
     source_skill_dirs = discover_skill_dirs(SOURCE_SKILLS_DIR)
     shipped_skill_dirs = {path.name: path for path in discover_skill_dirs(SHIPPED_SKILLS_DIR)}
 
@@ -152,10 +169,7 @@ def validate_skills_consistency(marketplace_path: Path, plugin_path: Path) -> li
             shipped_skill_dir.resolve().is_relative_to(root) for root in skill_roots
         ):
             errors.append(f"skills/{skill_name} is not covered by any plugin.json skills root")
-        shipped_eval_dirs = [
-            path for path in shipped_skill_dir.rglob("*") if path.is_dir() and path.name == "evals"
-        ]
-        if shipped_eval_dirs:
+        if has_evals_dir(shipped_skill_dir):
             errors.append(f"skills/{skill_name} must not contain an evals directory")
 
     source_skill_names = {path.name for path in source_skill_dirs}
@@ -166,25 +180,100 @@ def validate_skills_consistency(marketplace_path: Path, plugin_path: Path) -> li
     return errors
 
 
+def validate_generated_plugin_dist(
+    source_plugin_path: Path, generated_plugin_path: Path
+) -> list[str]:
+    errors: list[str] = []
+    source_plugin = load_json(source_plugin_path)
+    generated_plugin = load_json(generated_plugin_path)
+
+    if source_plugin != generated_plugin:
+        errors.append(
+            "claude-plugin-dist/marketplace.json does not match .claude-plugin/plugin.json"
+        )
+
+    errors.extend(
+        compare_directory_trees(
+            SHIPPED_SKILLS_DIR,
+            GENERATED_PLUGIN_SKILLS_DIR,
+            expected_label="skills",
+            actual_label="claude-plugin-dist/skills",
+        )
+    )
+
+    if GENERATED_PLUGIN_SKILLS_DIR.exists():
+        for skill_dir in discover_skill_dirs(GENERATED_PLUGIN_SKILLS_DIR):
+            if has_evals_dir(skill_dir):
+                errors.append(
+                    "claude-plugin-dist/skills/"
+                    f"{skill_dir.name} must not contain an evals directory"
+                )
+
+    return errors
+
+
+def compare_directory_trees(
+    expected_root: Path,
+    actual_root: Path,
+    *,
+    expected_label: str,
+    actual_label: str,
+) -> list[str]:
+    errors: list[str] = []
+    if not expected_root.exists():
+        errors.append(f"{expected_label} does not exist")
+        return errors
+    if not actual_root.exists():
+        errors.append(f"{actual_label} does not exist")
+        return errors
+
+    expected_files = collect_files(expected_root)
+    actual_files = collect_files(actual_root)
+
+    for relative_path in sorted(set(expected_files) - set(actual_files)):
+        errors.append(f"{actual_label}/{relative_path} is missing")
+    for relative_path in sorted(set(actual_files) - set(expected_files)):
+        errors.append(f"{actual_label}/{relative_path} has no matching {expected_label} file")
+    for relative_path in sorted(set(expected_files) & set(actual_files)):
+        if expected_files[relative_path] != actual_files[relative_path]:
+            errors.append(
+                f"{actual_label}/{relative_path} does not match {expected_label}/{relative_path}"
+            )
+
+    return errors
+
+
+def collect_files(root: Path) -> dict[Path, bytes]:
+    return {
+        path.relative_to(root): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def has_evals_dir(root: Path) -> bool:
+    return any(path.is_dir() and path.name == "evals" for path in root.rglob("*"))
+
+
 def discover_skill_dirs(root: Path) -> list[Path]:
     if not root.exists():
         return []
     return sorted(d for d in root.iterdir() if d.is_dir() and (d / "SKILL.md").exists())
 
 
-def resolve_plugin_skill_roots(plugin: dict) -> list[Path]:
+def resolve_plugin_skill_roots(plugin: dict, skill_root_base: Path) -> list[Path]:
     skills = plugin.get("skills", [])
     if not isinstance(skills, list):
         return []
     return [
-        resolve_skill_root(skill_path)
+        resolve_skill_root(skill_path, skill_root_base)
         for skill_path in skills
         if isinstance(skill_path, str) and skill_path.strip()
     ]
 
 
-def resolve_skill_root(skill_path: str) -> Path:
-    return (ROOT / skill_path).resolve()
+def resolve_skill_root(skill_path: str, skill_root_base: Path = ROOT) -> Path:
+    return (skill_root_base / skill_path).resolve()
 
 
 def load_frontmatter(path: Path) -> dict:
@@ -208,10 +297,11 @@ def load_frontmatter(path: Path) -> dict:
 
 def main() -> None:
     errors: list[str] = []
+    manifest_errors = False
 
     marketplace_path = PLUGIN_DIR / "marketplace.json"
     plugin_path = PLUGIN_DIR / "plugin.json"
-    manifest_errors = False
+    generated_plugin_path = GENERATED_PLUGIN_MANIFEST
 
     if not marketplace_path.exists():
         errors.append("Missing .claude-plugin/marketplace.json")
@@ -225,13 +315,22 @@ def main() -> None:
         errors.append("Missing .claude-plugin/plugin.json")
         manifest_errors = True
     else:
-        plugin_errors = validate_plugin_json(plugin_path)
+        plugin_errors = validate_plugin_json(plugin_path, ROOT)
         errors.extend(plugin_errors)
         manifest_errors = manifest_errors or bool(plugin_errors)
+
+    if not generated_plugin_path.exists():
+        errors.append("Missing claude-plugin-dist/marketplace.json")
+        manifest_errors = True
+    else:
+        generated_plugin_errors = validate_plugin_json(generated_plugin_path, GENERATED_PLUGIN_DIR)
+        errors.extend(generated_plugin_errors)
+        manifest_errors = manifest_errors or bool(generated_plugin_errors)
 
     if marketplace_path.exists() and plugin_path.exists() and not manifest_errors:
         try:
             errors.extend(validate_skills_consistency(marketplace_path, plugin_path))
+            errors.extend(validate_generated_plugin_dist(plugin_path, generated_plugin_path))
         except ValueError as exc:
             errors.append(str(exc))
 

@@ -1,4 +1,4 @@
-"""Pre-commit guard for shipped skills sync drift."""
+"""Pre-commit guard for generated artifact sync drift."""
 
 from __future__ import annotations
 
@@ -6,15 +6,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts.sync_skills import rebuild_shipped_skills
+from scripts.sync_skills import (
+    GENERATED_PLUGIN_DIR,
+    SHIPPED_SKILLS_DIR,
+    rebuild_generated_artifacts,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
-SHIPPED_SKILLS_DIR = ROOT / "skills"
+GENERATED_OUTPUT_DIRS = [SHIPPED_SKILLS_DIR, GENERATED_PLUGIN_DIR]
 
 
-def shipped_skills_dirty() -> bool:
+def generated_outputs_dirty() -> bool:
     result = subprocess.run(
-        ["git", "diff", "--quiet", "--", str(SHIPPED_SKILLS_DIR)],
+        ["git", "diff", "--quiet", "--", *(str(path) for path in GENERATED_OUTPUT_DIRS)],
         cwd=ROOT,
         check=False,
     )
@@ -22,14 +26,14 @@ def shipped_skills_dirty() -> bool:
 
 
 def main() -> None:
-    rebuild_shipped_skills()
-    if not shipped_skills_dirty():
+    rebuild_generated_artifacts()
+    if not generated_outputs_dirty():
         return
 
-    print("skills/ was out of date and has been regenerated.", file=sys.stderr)
+    print("Generated skill artifacts were out of date and have been regenerated.", file=sys.stderr)
     print("Review the changes, then run:", file=sys.stderr)
     print("  uv run sync-skills", file=sys.stderr)
-    print("  git add skills", file=sys.stderr)
+    print("  git add skills claude-plugin-dist", file=sys.stderr)
     print("After that, re-run your commit.", file=sys.stderr)
     raise SystemExit(1)
 

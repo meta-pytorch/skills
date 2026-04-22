@@ -12,7 +12,12 @@
     {
       "name": "pytorch-skills",
       "description": "Skills for debugging, profiling, authoring, and triaging PyTorch code",
-      "source": "./",
+      "version": "0.1.0",
+      "author": {
+        "name": "PyTorch Team",
+        "email": "pytorch@meta.com"
+      },
+      "source": "./claude-plugin-dist",
       "category": "development",
       "homepage": "https://github.com/meta-pytorch/skills"
     }

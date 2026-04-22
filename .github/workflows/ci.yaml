@@ -22,7 +22,7 @@ jobs:
       - name: Run prek
         run: uv run prek run -a
 
-  validate-shipped-skills:
+  validate-generated-artifacts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,15 +31,15 @@ jobs:
           python-version: "3.12"
       - name: Sync environment
         run: uv sync --group dev
-      - name: Regenerate shipped skills
+      - name: Regenerate generated artifacts
         run: uv run sync-skills
-      - name: Fail on shipped tree drift
+      - name: Fail on generated artifact drift
         run: git diff --exit-code
       - name: Reject shipped eval directories
         run: |
-          if find skills -type d -name evals | grep -q .; then
-            echo "skills must not contain evals directories" >&2
-            find skills -type d -name evals >&2
+          if find skills claude-plugin-dist -type d -name evals | grep -q .; then
+            echo "Generated artifacts must not contain evals directories" >&2
+            find skills claude-plugin-dist -type d -name evals >&2
             exit 1
           fi
 

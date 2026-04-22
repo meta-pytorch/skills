@@ -16,12 +16,12 @@ uv run prek run -a
 uv run sync-skills
 ```
 
-The local pre-commit config checks that generated `skills/` is up to date. If it
+The local pre-commit config checks that generated artifacts are up to date. If it
 fails, run:
 
 ```bash
 uv run sync-skills
-git add skills
+git add skills claude-plugin-dist
 ```
 
 ## Create A Skill
@@ -38,17 +38,22 @@ regenerate the shipped tree with:
 uv run sync-skills
 ```
 
-New skills normally do not require a manual `.claude-plugin` edit because the
-repo ships the generated top-level `./skills` tree that external tools already
-discover; `scripts/validate_plugin.py` checks that every source skill stays
-represented in shipped output.
+New skills normally do not require a manual `.claude-plugin` edit. The repo
+ships two generated install surfaces:
+
+- `./skills` for `npx skills add meta-pytorch/skills`
+- `./claude-plugin-dist` for Claude marketplace installs
+
+`scripts/validate_plugin.py` checks that every source skill stays represented in
+both generated outputs.
 
 ## Structure
 
 ```text
 repo-root/
 ├── .claude-plugin/
-│   └── marketplace.json       # Skill registry metadata
+│   ├── marketplace.json       # Root marketplace; points Claude installs at claude-plugin-dist/
+│   └── plugin.json            # Root plugin manifest for local --plugin-dir flows
 ├── skills-with-evals/         # Source skills, including eval authoring files
 │   └── my-skill/
 │       ├── SKILL.md           # Required — skill definition
@@ -66,17 +71,27 @@ repo-root/
 │       ├── references/
 │       ├── scripts/
 │       └── assets/
+├── claude-plugin-dist/        # Generated Claude marketplace payload
+│   ├── marketplace.json
+│   └── skills/
+│       └── my-skill/
+│           ├── SKILL.md
+│           ├── references/
+│           ├── scripts/
+│           └── assets/
 ├── skill_eval/                # Eval harness, scoring, reporting
 ├── CONTRIBUTING.md
 ├── LICENSE
 └── README.md
 ```
 
-`skills/` is generated from `skills-with-evals/` and strips every directory
-named `evals/`. External installs like `npx skills add meta-pytorch/skills`
-therefore consume the shipped tree automatically, while skill authors continue
-to work in `skills-with-evals/`. If a source skill is deleted, the next sync
-rebuild removes its shipped mirror automatically.
+`skills/` and `claude-plugin-dist/` are generated from `skills-with-evals/` and
+strip every directory named `evals/`. External installs like
+`npx skills add meta-pytorch/skills` consume the shipped top-level `skills/`
+tree, while Claude marketplace installs consume the generated
+`claude-plugin-dist/` payload. Skill authors continue to work in
+`skills-with-evals/`. If a source skill is deleted, the next sync rebuild
+removes both generated mirrors automatically.
 
 ## SKILL.md Format
 

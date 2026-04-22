@@ -147,6 +147,67 @@ class ValidatePluginTest(unittest.TestCase):
                 errors = validate_plugin.validate_skills_consistency(marketplace_path, plugin_path)
         self.assertIn("skills/foo must not contain an evals directory", errors)
 
+    def test_validate_generated_plugin_dist_reports_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            plugin_dir = root / ".claude-plugin"
+            plugin_dir.mkdir()
+            plugin_path = plugin_dir / "plugin.json"
+            plugin_path.write_text(
+                json.dumps(
+                    {
+                        "name": "pytorch-skills",
+                        "description": "d",
+                        "skills": ["./skills"],
+                    }
+                )
+            )
+
+            shipped_skill_dir = root / "skills" / "foo"
+            shipped_skill_dir.mkdir(parents=True)
+            shipped_skill_dir.joinpath("SKILL.md").write_text(
+                "---\nname: foo\ndescription: hi\n---\n\n# Foo\n"
+            )
+
+            generated_plugin_dir = root / "claude-plugin-dist"
+            generated_skills_dir = generated_plugin_dir / "skills" / "foo"
+            generated_skills_dir.mkdir(parents=True)
+            (generated_plugin_dir / "marketplace.json").write_text(
+                json.dumps(
+                    {
+                        "name": "pytorch-skills",
+                        "description": "different",
+                        "skills": ["./skills"],
+                    }
+                )
+            )
+            generated_skills_dir.joinpath("SKILL.md").write_text(
+                "---\nname: foo\ndescription: changed\n---\n\n# Foo\n"
+            )
+
+            with (
+                mock.patch.object(validate_plugin, "SHIPPED_SKILLS_DIR", root / "skills"),
+                mock.patch.object(validate_plugin, "GENERATED_PLUGIN_DIR", generated_plugin_dir),
+                mock.patch.object(
+                    validate_plugin,
+                    "GENERATED_PLUGIN_SKILLS_DIR",
+                    generated_plugin_dir / "skills",
+                ),
+            ):
+                errors = validate_plugin.validate_generated_plugin_dist(
+                    plugin_path,
+                    generated_plugin_dir / "marketplace.json",
+                )
+
+        self.assertIn(
+            "claude-plugin-dist/marketplace.json does not match .claude-plugin/plugin.json",
+            errors,
+        )
+        self.assertIn(
+            "claude-plugin-dist/skills/foo/SKILL.md does not match skills/foo/SKILL.md",
+            errors,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -66,19 +66,23 @@ right outcomes.
    - `assets/` for templates and reusable resources
 
 You usually do not need to edit `.claude-plugin/plugin.json` or
-`.claude-plugin/marketplace.json` for each new skill because this repo ships the
-generated top-level `./skills` directory through `npx skills`. After changing a
-source skill, regenerate the shipped tree with:
+`.claude-plugin/marketplace.json` for each new skill because this repo ships
+generated install surfaces automatically. After changing a source skill,
+regenerate them with:
 
 ```bash
 uv run sync-skills
 ```
 
-The sync step mirrors `skills-with-evals/<skill-name>/` into `skills/<skill-name>/`
-while stripping any directory named `evals/`. If a source skill is deleted, the
-next sync rebuild removes its shipped copy. The validator will fail if a source
-skill is missing from shipped output or if an `evals/` directory appears in
-`skills/`.
+The sync step mirrors `skills-with-evals/<skill-name>/` into:
+
+- `skills/<skill-name>/` for `npx skills`
+- `claude-plugin-dist/skills/<skill-name>/` for Claude marketplace installs
+
+Both generated outputs strip any directory named `evals/`. If a source skill is
+deleted, the next sync rebuild removes both generated copies. The validator will
+fail if a source skill is missing from generated output or if an `evals/`
+directory appears in `skills/` or `claude-plugin-dist/`.
 
 ## Evaluation workflow
 
@@ -181,12 +185,12 @@ uv run prek run -a
 uv run sync-skills
 ```
 
-The local pre-commit config also checks that generated `skills/` matches the
+The local pre-commit config also checks that generated artifacts match the
 source skills. If it regenerates files and fails, run:
 
 ```bash
 uv run sync-skills
-git add skills
+git add skills claude-plugin-dist
 ```
 
 Then retry your commit.
@@ -267,6 +271,10 @@ Or symlink the shipped skill directly:
 uv run sync-skills
 ln -s $(pwd)/skills/my-new-skill ~/.claude/skills/my-new-skill
 ```
+
+For Claude marketplace testing, `.claude-plugin/marketplace.json` points at the
+generated `claude-plugin-dist/` payload, so marketplace installs avoid copying
+the whole repo into the installed plugin payload.
 
 If you want to inspect the exact shipped files, read `skills/README.md` before
 editing anything there.

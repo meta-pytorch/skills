@@ -1,7 +1,8 @@
-"""Rebuild shipped skills/ from source skills-with-evals/ while stripping eval artifacts."""
+"""Rebuild generated shipped artifacts from source skills-with-evals/."""
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -10,6 +11,9 @@ import typer
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_SKILLS_DIR = ROOT / "skills-with-evals"
 SHIPPED_SKILLS_DIR = ROOT / "skills"
+SOURCE_PLUGIN_MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
+GENERATED_PLUGIN_DIR = ROOT / "claude-plugin-dist"
+GENERATED_PLUGIN_MANIFEST = GENERATED_PLUGIN_DIR / "marketplace.json"
 SHIPPED_SKILLS_README = """# Skills
 
 This directory is generated from `skills-with-evals/`.
@@ -65,10 +69,36 @@ def rebuild_shipped_skills() -> list[Path]:
     return shipped_skills
 
 
-def main() -> None:
+def load_source_plugin_manifest() -> dict:
+    if not SOURCE_PLUGIN_MANIFEST.is_file():
+        raise ValueError(f"Missing source plugin manifest: {SOURCE_PLUGIN_MANIFEST}")
+    payload = json.loads(SOURCE_PLUGIN_MANIFEST.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError(f"Plugin manifest must be a JSON object: {SOURCE_PLUGIN_MANIFEST}")
+    return payload
+
+
+def rebuild_claude_plugin_dist() -> Path:
+    if GENERATED_PLUGIN_DIR.exists():
+        shutil.rmtree(GENERATED_PLUGIN_DIR)
+    GENERATED_PLUGIN_DIR.mkdir()
+
+    manifest = load_source_plugin_manifest()
+    GENERATED_PLUGIN_MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
+    shutil.copytree(SHIPPED_SKILLS_DIR, GENERATED_PLUGIN_DIR / "skills")
+    return GENERATED_PLUGIN_DIR
+
+
+def rebuild_generated_artifacts() -> tuple[list[Path], Path]:
     shipped_skills = rebuild_shipped_skills()
+    plugin_dir = rebuild_claude_plugin_dist()
+    return shipped_skills, plugin_dir
+
+
+def main() -> None:
+    shipped_skills, plugin_dir = rebuild_generated_artifacts()
     message = (
-        f"Rebuilt {SHIPPED_SKILLS_DIR} from {SOURCE_SKILLS_DIR} "
+        f"Rebuilt {SHIPPED_SKILLS_DIR} and {plugin_dir} from {SOURCE_SKILLS_DIR} "
         f"with {len(shipped_skills)} shipped skill(s)."
     )
     typer.secho(message, fg=typer.colors.GREEN)
