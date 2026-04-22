@@ -12,11 +12,11 @@ class NewSkillTest(unittest.TestCase):
     def test_create_skill_scaffold_writes_minimal_structure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            skills_dir = root / "skills"
-            skills_dir.mkdir()
+            source_skills_dir = root / "skills-with-evals"
+            source_skills_dir.mkdir()
             with (
                 mock.patch.object(new_skill, "ROOT", root),
-                mock.patch.object(new_skill, "SKILLS_DIR", skills_dir),
+                mock.patch.object(new_skill, "SOURCE_SKILLS_DIR", source_skills_dir),
             ):
                 skill_dir = new_skill.create_skill_scaffold("graph-break-finder")
 

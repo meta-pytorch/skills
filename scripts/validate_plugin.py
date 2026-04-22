@@ -1,4 +1,4 @@
-"""Validate .claude-plugin/ manifests and cross-check with skills/ directory."""
+"""Validate .claude-plugin/ manifests and cross-check source and shipped skill trees."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from pathlib import Path
 import typer
 import yaml
 
-ROOT = Path.cwd()
+ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_DIR = ROOT / ".claude-plugin"
-SKILLS_DIR = ROOT / "skills"
+SOURCE_SKILLS_DIR = ROOT / "skills-with-evals"
+SHIPPED_SKILLS_DIR = ROOT / "skills"
 
 
 def load_json(path: Path) -> object:
@@ -32,7 +33,7 @@ def validate_marketplace(path: Path) -> list[str]:
         errors.append("marketplace.json: 'plugins' must be an array")
         return errors
 
-    ALLOWED_PLUGIN_FIELDS = {
+    allowed_plugin_fields = {
         "name",
         "description",
         "version",
@@ -54,7 +55,7 @@ def validate_marketplace(path: Path) -> list[str]:
             if field not in plugin:
                 errors.append(f"{prefix}: missing required field '{field}'")
 
-        unknown = set(plugin.keys()) - ALLOWED_PLUGIN_FIELDS
+        unknown = set(plugin.keys()) - allowed_plugin_fields
         if unknown:
             errors.append(f"{prefix}: unknown fields {unknown} (will fail schema validation)")
 
@@ -125,27 +126,50 @@ def validate_skills_consistency(marketplace_path: Path, plugin_path: Path) -> li
         errors.append(f"plugin.json name '{plugin_name}' not found in marketplace.json plugins")
 
     skill_roots = resolve_plugin_skill_roots(plugin)
-    skill_dirs = sorted(d for d in SKILLS_DIR.iterdir() if d.is_dir() and (d / "SKILL.md").exists())
+    source_skill_dirs = discover_skill_dirs(SOURCE_SKILLS_DIR)
+    shipped_skill_dirs = {path.name: path for path in discover_skill_dirs(SHIPPED_SKILLS_DIR)}
 
-    for skill_dir in skill_dirs:
+    for skill_dir in source_skill_dirs:
         skill_name = skill_dir.name
         skill_md = skill_dir / "SKILL.md"
         frontmatter = load_frontmatter(skill_md)
         name_value = frontmatter.get("name")
         if not isinstance(name_value, str) or not name_value:
-            errors.append(f"skills/{skill_name}/SKILL.md: missing 'name' field")
+            errors.append(f"skills-with-evals/{skill_name}/SKILL.md: missing 'name' field")
         elif name_value != skill_name:
             errors.append(
-                f"skills/{skill_name}/SKILL.md: name '{name_value}' != directory '{skill_name}'"
+                "skills-with-evals/"
+                f"{skill_name}/SKILL.md: name '{name_value}' != directory '{skill_name}'"
             )
         if not isinstance(frontmatter.get("description"), str):
-            errors.append(f"skills/{skill_name}/SKILL.md: missing 'description' field")
+            errors.append(f"skills-with-evals/{skill_name}/SKILL.md: missing 'description' field")
+
+        shipped_skill_dir = shipped_skill_dirs.get(skill_name)
+        if shipped_skill_dir is None:
+            errors.append(f"skills/{skill_name}/SKILL.md is missing")
+            continue
         if skill_roots and not any(
-            skill_dir.resolve().is_relative_to(root) for root in skill_roots
+            shipped_skill_dir.resolve().is_relative_to(root) for root in skill_roots
         ):
             errors.append(f"skills/{skill_name} is not covered by any plugin.json skills root")
+        shipped_eval_dirs = [
+            path for path in shipped_skill_dir.rglob("*") if path.is_dir() and path.name == "evals"
+        ]
+        if shipped_eval_dirs:
+            errors.append(f"skills/{skill_name} must not contain an evals directory")
+
+    source_skill_names = {path.name for path in source_skill_dirs}
+    unexpected_shipped_skills = sorted(set(shipped_skill_dirs) - source_skill_names)
+    for skill_name in unexpected_shipped_skills:
+        errors.append(f"skills/{skill_name} has no matching source skill")
 
     return errors
+
+
+def discover_skill_dirs(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(d for d in root.iterdir() if d.is_dir() and (d / "SKILL.md").exists())
 
 
 def resolve_plugin_skill_roots(plugin: dict) -> list[Path]:

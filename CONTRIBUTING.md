@@ -4,8 +4,8 @@
 
 A new or modified skill is ready to merge when all of the following are true:
 
-- `skills/<skill-name>/SKILL.md` exists and has valid frontmatter
-- `skills/<skill-name>/evals/eval.yaml` exists and validates
+- `skills-with-evals/<skill-name>/SKILL.md` exists and has valid frontmatter
+- `skills-with-evals/<skill-name>/evals/eval.yaml` exists and validates
 - The eval is outcome-oriented and believable enough that a future score drop would matter
 - The PR includes manual verification notes against the authored benchmark contract
 - The skill stays focused, specific, and small enough for agents to load quickly
@@ -24,7 +24,7 @@ right outcomes.
    This creates the minimum reviewable structure:
 
    ```text
-   skills/my-new-skill/
+   skills-with-evals/my-new-skill/
    ├── SKILL.md
    └── evals/
        ├── eval.yaml
@@ -66,9 +66,19 @@ right outcomes.
    - `assets/` for templates and reusable resources
 
 You usually do not need to edit `.claude-plugin/plugin.json` or
-`.claude-plugin/marketplace.json` for each new skill because this repo publishes
-the whole `./skills` directory through `npx skills`. The validator will fail if
-the manifest no longer covers a shipped skill.
+`.claude-plugin/marketplace.json` for each new skill because this repo ships the
+generated top-level `./skills` directory through `npx skills`. After changing a
+source skill, regenerate the shipped tree with:
+
+```bash
+uv run sync-skills
+```
+
+The sync step mirrors `skills-with-evals/<skill-name>/` into `skills/<skill-name>/`
+while stripping any directory named `evals/`. If a source skill is deleted, the
+next sync rebuild removes its shipped copy. The validator will fail if a source
+skill is missing from shipped output or if an `evals/` directory appears in
+`skills/`.
 
 ## Evaluation workflow
 
@@ -92,7 +102,7 @@ Use this shape:
 ```yaml
 eval_version: "1"
 skill_name: "my-new-skill"
-skill_path: "skills/my-new-skill/SKILL.md"
+skill_path: "skills-with-evals/my-new-skill/SKILL.md"
 models:
   - "claude-sonnet"
 
@@ -168,7 +178,18 @@ Sync the repo environment first:
 ```bash
 uv sync --group dev
 uv run prek run -a
+uv run sync-skills
 ```
+
+The local pre-commit config also checks that generated `skills/` matches the
+source skills. If it regenerates files and fails, run:
+
+```bash
+uv run sync-skills
+git add skills
+```
+
+Then retry your commit.
 
 Scaffold a new skill:
 
@@ -179,19 +200,19 @@ uv run python scripts/new_skill.py my-new-skill
 Validate the contract:
 
 ```bash
-uv run python scripts/validate_evals.py skills/my-new-skill
+uv run python scripts/validate_evals.py skills-with-evals/my-new-skill
 ```
 
 Run the benchmark:
 
 ```bash
-uv run python -m skill_eval run skills/my-new-skill
+uv run python -m skill_eval run skills-with-evals/my-new-skill
 ```
 
 Run the benchmark as A/B baseline vs treatment:
 
 ```bash
-uv run python -m skill_eval run-ab skills/my-new-skill
+uv run python -m skill_eval run-ab skills-with-evals/my-new-skill
 ```
 
 By default, both commands use the built-in Claude Code CLI runtime and the
@@ -204,7 +225,7 @@ built-in Claude judge. Make sure:
 If you want a different runtime or judge, override them explicitly:
 
 ```bash
-uv run python -m skill_eval run skills/my-new-skill \
+uv run python -m skill_eval run skills-with-evals/my-new-skill \
   --runtime-command "uv run python -m your_agent_runtime" \
   --judge-command "uv run python -m your_judge_runtime"
 ```
@@ -231,15 +252,24 @@ Before opening the PR:
 
 ### Local install
 
+For `npx skills` testing, sync the shipped tree first and install the repo root.
+Because top-level `skills/` is the generated shipped tree, repo-root installs use
+the right artifact without pulling in eval files:
+
 ```bash
-npx skills add ./path/to/skills
+uv run sync-skills
+npx skills add ./
 ```
 
-Or symlink directly:
+Or symlink the shipped skill directly:
 
 ```bash
+uv run sync-skills
 ln -s $(pwd)/skills/my-new-skill ~/.claude/skills/my-new-skill
 ```
+
+If you want to inspect the exact shipped files, read `skills/README.md` before
+editing anything there.
 
 Restart your agent and test with prompts that map to your eval cases.
 

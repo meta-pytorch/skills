@@ -22,6 +22,27 @@ jobs:
       - name: Run prek
         run: uv run prek run -a
 
+  validate-shipped-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync environment
+        run: uv sync --group dev
+      - name: Regenerate shipped skills
+        run: uv run sync-skills
+      - name: Fail on shipped tree drift
+        run: git diff --exit-code
+      - name: Reject shipped eval directories
+        run: |
+          if find skills -type d -name evals | grep -q .; then
+            echo "skills must not contain evals directories" >&2
+            find skills -type d -name evals >&2
+            exit 1
+          fi
+
   validate-plugin:
     runs-on: ubuntu-latest
     steps:
@@ -63,7 +84,7 @@ jobs:
         id: detect
         run: |
           CHANGED_SKILLS=$(git diff --name-only origin/main...HEAD \
-            | grep '^skills/' \
+            | grep '^skills-with-evals/' \
             | cut -d'/' -f2 \
             | sort -u \
             | grep -v '.gitkeep' || true)
@@ -84,7 +105,7 @@ jobs:
           PATHS=""
           for SKILL in ${{ steps.detect.outputs.skills }}; do
             echo "::group::Validating $SKILL"
-            PATHS="$PATHS skills/$SKILL"
+            PATHS="$PATHS skills-with-evals/$SKILL"
             echo "::endgroup::"
           done
           uv run validate-evals $PATHS

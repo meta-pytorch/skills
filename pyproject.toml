@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 new-skill = "scripts.new_skill:cli"
+sync-skills = "scripts.sync_skills:main"
 validate-evals = "scripts.validate_evals:cli"
 validate-plugin = "scripts.validate_plugin:cli"
 

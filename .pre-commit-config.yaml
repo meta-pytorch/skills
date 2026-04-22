@@ -1,4 +1,13 @@
 repos:
+  - repo: local
+    hooks:
+      - id: check-skills-sync
+        name: check skills sync
+        entry: uv run python scripts/check_skills_sync.py
+        language: system
+        files: ^(skills-with-evals/|skills/|scripts/sync_skills\.py$|scripts/check_skills_sync\.py$)
+        pass_filenames: false
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -23,7 +32,7 @@ repos:
     rev: v0.9.36
     hooks:
       - id: pymarkdown
-        exclude: ^skills/.*/SKILL\.md$
+        exclude: ^(skills|skills-with-evals)/.*/SKILL\.md$
         args:
           - --disable-rules
           - MD013,MD033,MD041,MD024

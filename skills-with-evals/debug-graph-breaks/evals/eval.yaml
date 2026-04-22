@@ -1,6 +1,6 @@
 eval_version: "1"
 skill_name: "debug-graph-breaks"
-skill_path: "skills/debug-graph-breaks/SKILL.md"
+skill_path: "skills-with-evals/debug-graph-breaks/SKILL.md"
 
 models:
   - "claude-opus-4-6"

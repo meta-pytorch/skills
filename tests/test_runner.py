@@ -9,6 +9,7 @@ from pathlib import Path
 from skill_eval.runner import run_ab_eval, run_eval
 
 FAKE_AGENT_COMMAND = f"python3 {Path('tests/fake_agent.py').resolve()}"
+SAMPLE_SKILL_PATH = Path("skills-with-evals/agents-are-coming")
 
 
 class RunnerTest(unittest.TestCase):
@@ -16,7 +17,7 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = Path(tmpdir) / "result.json"
             result = run_eval(
-                Path("skills/agents-are-coming"),
+                SAMPLE_SKILL_PATH,
                 runtime_command=FAKE_AGENT_COMMAND,
             )
             result.write_json(output_path)
@@ -27,7 +28,7 @@ class RunnerTest(unittest.TestCase):
 
     def test_sample_eval_runs_ab(self) -> None:
         result = run_ab_eval(
-            Path("skills/agents-are-coming"),
+            SAMPLE_SKILL_PATH,
             runtime_command=FAKE_AGENT_COMMAND,
         )
         self.assertEqual(result.baseline.model_summaries[0].passed_tests, 0)
@@ -36,7 +37,7 @@ class RunnerTest(unittest.TestCase):
 
     def test_non_zero_runtime_exit_fails_the_test_case(self) -> None:
         result = run_eval(
-            Path("skills/agents-are-coming"),
+            SAMPLE_SKILL_PATH,
             runtime_command=("python3 -c \"import sys; print('agents are coming'); sys.exit(1)\""),
         )
         self.assertEqual(result.model_summaries[0].passed_tests, 0)
@@ -46,7 +47,7 @@ class RunnerTest(unittest.TestCase):
     def test_run_eval_emits_status_updates(self) -> None:
         status = io.StringIO()
         run_eval(
-            Path("skills/agents-are-coming"),
+            SAMPLE_SKILL_PATH,
             runtime_command=FAKE_AGENT_COMMAND,
             status_stream=status,
         )
@@ -59,7 +60,7 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             debug_dir = Path(tmpdir) / "debug"
             run_eval(
-                Path("skills/agents-are-coming"),
+                SAMPLE_SKILL_PATH,
                 runtime_command=FAKE_AGENT_COMMAND,
                 debug_dir=debug_dir,
             )

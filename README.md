@@ -13,6 +13,15 @@ npx skills add meta-pytorch/skills
 ```bash
 uv sync --group dev
 uv run prek run -a
+uv run sync-skills
+```
+
+The local pre-commit config checks that generated `skills/` is up to date. If it
+fails, run:
+
+```bash
+uv run sync-skills
+git add skills
 ```
 
 ## Create A Skill
@@ -22,18 +31,25 @@ uv run python scripts/new_skill.py my-new-skill
 ```
 
 This creates a minimal `SKILL.md`, `evals/eval.yaml`, `evals/checkers.py`, and
-`evals/fixtures/` scaffold. New skills normally do not require a manual
-`.claude-plugin` edit because this plugin ships the whole `./skills` tree for
-`npx skills`; `scripts/validate_plugin.py` now checks that every skill stays
-covered by the configured plugin roots.
+`evals/fixtures/` scaffold under `skills-with-evals/`. After editing a skill,
+regenerate the shipped tree with:
+
+```bash
+uv run sync-skills
+```
+
+New skills normally do not require a manual `.claude-plugin` edit because the
+repo ships the generated top-level `./skills` tree that external tools already
+discover; `scripts/validate_plugin.py` checks that every source skill stays
+represented in shipped output.
 
 ## Structure
 
 ```text
-skills/
+repo-root/
 ├── .claude-plugin/
-│   └── marketplace.json      # Skill registry metadata
-├── skills/
+│   └── marketplace.json       # Skill registry metadata
+├── skills-with-evals/         # Source skills, including eval authoring files
 │   └── my-skill/
 │       ├── SKILL.md           # Required — skill definition
 │       ├── evals/
@@ -43,11 +59,24 @@ skills/
 │       ├── references/        # Optional — detailed docs
 │       ├── scripts/           # Optional — helper scripts
 │       └── assets/            # Optional — templates, resources
+├── skills/                    # Generated shipped tree discovered by npx skills
+│   ├── README.md
+│   └── my-skill/
+│       ├── SKILL.md
+│       ├── references/
+│       ├── scripts/
+│       └── assets/
 ├── skill_eval/                # Eval harness, scoring, reporting
 ├── CONTRIBUTING.md
 ├── LICENSE
 └── README.md
 ```
+
+`skills/` is generated from `skills-with-evals/` and strips every directory
+named `evals/`. External installs like `npx skills add meta-pytorch/skills`
+therefore consume the shipped tree automatically, while skill authors continue
+to work in `skills-with-evals/`. If a source skill is deleted, the next sync
+rebuild removes its shipped mirror automatically.
 
 ## SKILL.md Format
 
@@ -96,13 +125,13 @@ Each test case can combine:
 
 ```bash
 # 1. Validate the eval contract (syntax, required fields)
-uv run python -m skill_eval validate skills/my-skill
+uv run python -m skill_eval validate skills-with-evals/my-skill
 
 # 2. Run a single eval
-uv run python -m skill_eval run skills/my-skill
+uv run python -m skill_eval run skills-with-evals/my-skill
 
 # 3. Run an A/B eval (baseline without skill vs treatment with skill)
-uv run python -m skill_eval run-ab skills/my-skill
+uv run python -m skill_eval run-ab skills-with-evals/my-skill
 
 # 4. Run all evals in the repo
 uv run python -m skill_eval run-all
@@ -113,7 +142,7 @@ uv run python -m skill_eval run-all
 Use `--verbose` to see per-test details inline:
 
 ```bash
-uv run python -m skill_eval run-ab skills/my-skill --verbose
+uv run python -m skill_eval run-ab skills-with-evals/my-skill --verbose
 ```
 
 Verbose output includes:
@@ -126,7 +155,7 @@ Verbose output includes:
 Use `--debug-dir` to save full artifacts to disk for post-mortem inspection:
 
 ```bash
-uv run python -m skill_eval run-ab skills/my-skill --debug-dir ./debug
+uv run python -m skill_eval run-ab skills-with-evals/my-skill --debug-dir ./debug
 ```
 
 This writes per-test-case directories under `debug/<variant>/<model>/<test_case>/` containing:
@@ -138,7 +167,7 @@ This writes per-test-case directories under `debug/<variant>/<model>/<test_case>
 Use `--output-json` to write the machine-readable result bundle:
 
 ```bash
-uv run python -m skill_eval run-ab skills/my-skill --output-json results.json
+uv run python -m skill_eval run-ab skills-with-evals/my-skill --output-json results.json
 ```
 
 ### Writing eval.yaml
@@ -148,7 +177,7 @@ Each skill needs an `evals/eval.yaml` next to `SKILL.md`. Minimal example:
 ```yaml
 eval_version: "1"
 skill_name: "my-skill"
-skill_path: "skills/my-skill/SKILL.md"
+skill_path: "skills-with-evals/my-skill/SKILL.md"
 
 models:
   - "claude-opus-4-6"
@@ -213,7 +242,7 @@ The built-in Claude runtime requires:
 Override the runtime or judge with `--runtime-command` and `--judge-command`:
 
 ```bash
-uv run python -m skill_eval run-ab skills/my-skill \
+uv run python -m skill_eval run-ab skills-with-evals/my-skill \
   --runtime-command "uv run python -m your_runtime" \
   --judge-command "uv run python -m your_judge"
 ```

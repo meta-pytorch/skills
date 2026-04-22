@@ -11,6 +11,8 @@ import yaml
 from skill_eval.runner import discover_eval_paths
 from skill_eval.schema import SkillEvalValidationError, load_eval_spec
 
+SOURCE_SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills-with-evals"
+
 
 def main(
     paths: Annotated[
@@ -20,7 +22,7 @@ def main(
 ) -> None:
     try:
         for eval_path in discover_eval_paths(
-            paths or [str(path) for path in sorted(Path("skills").glob("*")) if path.is_dir()]
+            paths or [str(path) for path in sorted(SOURCE_SKILLS_DIR.glob("*")) if path.is_dir()]
         ):
             validate_skill(eval_path, load_eval_spec=load_eval_spec)
             typer.secho(f"validated {eval_path}", fg=typer.colors.GREEN)
@@ -51,7 +53,7 @@ def validate_skill(eval_path: Path, *, load_eval_spec) -> None:
         raise ValueError(
             f"{eval_path} declares skill_name {spec.skill_name!r}; expected {skill_name!r}"
         )
-    expected_skill_path = f"skills/{skill_name}/SKILL.md"
+    expected_skill_path = f"skills-with-evals/{skill_name}/SKILL.md"
     if spec.skill_path != expected_skill_path:
         raise ValueError(
             f"{eval_path} declares skill_path {spec.skill_path!r}; expected {expected_skill_path!r}"

@@ -1,4 +1,4 @@
-"""Scaffold a new skill with the minimum eval structure."""
+"""Scaffold a new source skill with the minimum eval structure."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from typing import Annotated
 
 import typer
 
-ROOT = Path.cwd()
-SKILLS_DIR = ROOT / "skills"
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SKILLS_DIR = ROOT / "skills-with-evals"
 SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -27,15 +27,16 @@ def main(
     typer.echo("Next steps:")
     typer.echo(f"  1. Edit {skill_dir / 'SKILL.md'}")
     typer.echo(f"  2. Edit {skill_dir / 'evals' / 'eval.yaml'}")
-    typer.echo("  3. Run uv run validate-plugin")
-    typer.echo(f"  4. Run uv run validate-evals {skill_dir}")
+    typer.echo("  3. Run uv run sync-skills")
+    typer.echo("  4. Run uv run validate-plugin")
+    typer.echo(f"  5. Run uv run validate-evals {skill_dir}")
 
 
 def create_skill_scaffold(skill_name: str) -> Path:
     if not SKILL_NAME_RE.fullmatch(skill_name):
         raise ValueError("skill name must use lowercase letters, numbers, and single hyphens only")
 
-    skill_dir = SKILLS_DIR / skill_name
+    skill_dir = SOURCE_SKILLS_DIR / skill_name
     if skill_dir.exists():
         raise FileExistsError(f"{skill_dir} already exists")
 
@@ -82,7 +83,7 @@ def render_eval_yaml(skill_name: str) -> str:
         f"""\
         eval_version: "1"
         skill_name: "{skill_name}"
-        skill_path: "skills/{skill_name}/SKILL.md"
+        skill_path: "skills-with-evals/{skill_name}/SKILL.md"
 
         models:
           - "claude-opus-4-6"

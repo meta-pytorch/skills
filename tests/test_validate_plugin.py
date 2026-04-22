@@ -31,9 +31,9 @@ class ValidatePluginTest(unittest.TestCase):
             root = Path(tmpdir)
             plugin_dir = root / ".claude-plugin"
             plugin_dir.mkdir()
-            skills_dir = root / "skills" / "foo"
-            skills_dir.mkdir(parents=True)
-            (skills_dir / "SKILL.md").write_text("---\ndescription: hi\n---\n\n# Foo\n")
+            source_skills_dir = root / "skills-with-evals" / "foo"
+            source_skills_dir.mkdir(parents=True)
+            (source_skills_dir / "SKILL.md").write_text("---\ndescription: hi\n---\n\n# Foo\n")
             marketplace_path = plugin_dir / "marketplace.json"
             marketplace_path.write_text(
                 json.dumps(
@@ -57,20 +57,23 @@ class ValidatePluginTest(unittest.TestCase):
             with (
                 mock.patch.object(validate_plugin, "ROOT", root),
                 mock.patch.object(validate_plugin, "PLUGIN_DIR", plugin_dir),
-                mock.patch.object(validate_plugin, "SKILLS_DIR", root / "skills"),
+                mock.patch.object(validate_plugin, "SOURCE_SKILLS_DIR", root / "skills-with-evals"),
+                mock.patch.object(validate_plugin, "SHIPPED_SKILLS_DIR", root / "skills"),
             ):
                 errors = validate_plugin.validate_skills_consistency(marketplace_path, plugin_path)
-        self.assertIn("skills/foo/SKILL.md: missing 'name' field", errors)
+        self.assertIn("skills-with-evals/foo/SKILL.md: missing 'name' field", errors)
 
     def test_validate_skills_consistency_requires_skill_to_be_shipped(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             plugin_dir = root / ".claude-plugin"
             plugin_dir.mkdir()
-            skills_dir = root / "skills" / "foo"
-            skills_dir.mkdir(parents=True)
-            (skills_dir / "SKILL.md").write_text("---\nname: foo\ndescription: hi\n---\n\n# Foo\n")
-            (root / "published-skills").mkdir()
+            source_skills_dir = root / "skills-with-evals" / "foo"
+            source_skills_dir.mkdir(parents=True)
+            (source_skills_dir / "SKILL.md").write_text(
+                "---\nname: foo\ndescription: hi\n---\n\n# Foo\n"
+            )
+            (root / "skills").mkdir()
             marketplace_path = plugin_dir / "marketplace.json"
             marketplace_path.write_text(
                 json.dumps(
@@ -87,17 +90,62 @@ class ValidatePluginTest(unittest.TestCase):
                     {
                         "name": "pytorch-skills",
                         "description": "d",
-                        "skills": ["./published-skills"],
+                        "skills": ["./skills"],
                     }
                 )
             )
             with (
                 mock.patch.object(validate_plugin, "ROOT", root),
                 mock.patch.object(validate_plugin, "PLUGIN_DIR", plugin_dir),
-                mock.patch.object(validate_plugin, "SKILLS_DIR", root / "skills"),
+                mock.patch.object(validate_plugin, "SOURCE_SKILLS_DIR", root / "skills-with-evals"),
+                mock.patch.object(validate_plugin, "SHIPPED_SKILLS_DIR", root / "skills"),
             ):
                 errors = validate_plugin.validate_skills_consistency(marketplace_path, plugin_path)
-        self.assertIn("skills/foo is not covered by any plugin.json skills root", errors)
+        self.assertIn("skills/foo/SKILL.md is missing", errors)
+
+    def test_validate_skills_consistency_rejects_shipped_evals(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            plugin_dir = root / ".claude-plugin"
+            plugin_dir.mkdir()
+            source_skills_dir = root / "skills-with-evals" / "foo"
+            source_skills_dir.mkdir(parents=True)
+            (source_skills_dir / "SKILL.md").write_text(
+                "---\nname: foo\ndescription: hi\n---\n\n# Foo\n"
+            )
+            shipped_skill_dir = root / "skills" / "foo" / "evals"
+            shipped_skill_dir.mkdir(parents=True)
+            shipped_skill_dir.parent.joinpath("SKILL.md").write_text(
+                "---\nname: foo\ndescription: hi\n---\n\n# Foo\n"
+            )
+            marketplace_path = plugin_dir / "marketplace.json"
+            marketplace_path.write_text(
+                json.dumps(
+                    {
+                        "name": "skills",
+                        "owner": {},
+                        "plugins": [{"name": "pytorch-skills", "description": "d", "source": "./"}],
+                    }
+                )
+            )
+            plugin_path = plugin_dir / "plugin.json"
+            plugin_path.write_text(
+                json.dumps(
+                    {
+                        "name": "pytorch-skills",
+                        "description": "d",
+                        "skills": ["./skills"],
+                    }
+                )
+            )
+            with (
+                mock.patch.object(validate_plugin, "ROOT", root),
+                mock.patch.object(validate_plugin, "PLUGIN_DIR", plugin_dir),
+                mock.patch.object(validate_plugin, "SOURCE_SKILLS_DIR", root / "skills-with-evals"),
+                mock.patch.object(validate_plugin, "SHIPPED_SKILLS_DIR", root / "skills"),
+            ):
+                errors = validate_plugin.validate_skills_consistency(marketplace_path, plugin_path)
+        self.assertIn("skills/foo must not contain an evals directory", errors)
 
 
 if __name__ == "__main__":

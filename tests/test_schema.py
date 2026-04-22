@@ -9,7 +9,7 @@ from skill_eval.schema import SkillEvalValidationError, load_eval_spec
 
 class SchemaTest(unittest.TestCase):
     def test_sample_eval_loads(self) -> None:
-        spec = load_eval_spec(Path("skills/agents-are-coming/evals/eval.yaml"))
+        spec = load_eval_spec(Path("skills-with-evals/agents-are-coming/evals/eval.yaml"))
         self.assertEqual(spec.skill_name, "agents-are-coming")
         self.assertEqual(spec.models, ["claude-opus-4-6"])
         self.assertEqual(len(spec.test_cases), 1)
@@ -22,7 +22,7 @@ class SchemaTest(unittest.TestCase):
                     [
                         'eval_version: "1"',
                         'skill_name: "agents-are-coming"',
-                        'skill_path: "skills/agents-are-coming/SKILL.md"',
+                        'skill_path: "skills-with-evals/agents-are-coming/SKILL.md"',
                         "models:",
                         '  - "claude-opus-4-6"',
                         "test_cases:",

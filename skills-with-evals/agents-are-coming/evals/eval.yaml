@@ -1,6 +1,6 @@
 eval_version: "1"
 skill_name: "agents-are-coming"
-skill_path: "skills/agents-are-coming/SKILL.md"
+skill_path: "skills-with-evals/agents-are-coming/SKILL.md"
 
 models:
   - "claude-opus-4-6"

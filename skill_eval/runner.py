@@ -31,7 +31,7 @@ from skill_eval.schema import EvalSpec, load_eval_spec
 def discover_eval_paths(paths: list[str]) -> list[Path]:
     """Resolve skill directories or eval.yaml files to concrete eval paths."""
     if not paths:
-        return sorted(Path("skills").glob("*/evals/eval.yaml"))
+        return sorted(Path("skills-with-evals").glob("*/evals/eval.yaml"))
 
     resolved: list[Path] = []
     for raw_path in paths:

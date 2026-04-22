@@ -1,6 +1,6 @@
 eval_version: "1"
 skill_name: "profile-model"
-skill_path: "skills/profile-model/SKILL.md"
+skill_path: "skills-with-evals/profile-model/SKILL.md"
 
 models:
   - "claude-opus-4-6"
