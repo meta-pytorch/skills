@@ -1,0 +1,59 @@
+name: "nobug-174011-layernorm-nan-extremal-inputs"
+description: "LayerNorm produces NaN on CPU but not CUDA for extremal float32 inputs"
+user_message: |
+  When running `nn.LayerNorm` with identical inputs and weights, the CPU execution produces
+  NaN values while CUDA execution produces normal outputs. The inputs are valid float32 tensors
+  with no NaN or Inf values.
+
+  ```python
+  import torch
+  import torch.nn as nn
+
+  ln_1_input = torch.load("input.pt", map_location="cpu")
+  ln_1_sd = torch.load("sd.pt", map_location="cpu")
+
+  input_cuda = ln_1_input.to("cuda").to(torch.float32)
+  input_cpu = ln_1_input.to("cpu").to(torch.float32)
+
+  ln_1_layer = nn.LayerNorm(ln_1_sd["weight"].shape[0])
+  ln_1_layer.weight.data = ln_1_sd["weight"].clone()
+  ln_1_layer.bias.data = ln_1_sd["bias"].clone()
+
+  with torch.no_grad():
+      a = ln_1_layer.to("cuda").to(torch.float32).eval()(input_cuda).detach().cpu().float()
+      b = ln_1_layer.to("cpu").to(torch.float32).eval()(input_cpu).detach().cpu().float()
+
+  print(f"CUDA output has NaN: {torch.isnan(a).any().item()}")   # False
+  print(f"CPU output has NaN: {torch.isnan(b).any().item()}")     # True
+  ```
+
+  The input tensor statistics show:
+  ```
+  ln_1_input shape: (1, 16, 768)
+  ln_1_input dtype: torch.float32
+  ln_1_input min: 3.402823e+38
+  ln_1_input max: 3.402823e+38
+  ln_1_input has NaN: False
+  ln_1_input has Inf: False
+  ```
+
+  If I upcast the inputs and weights to float64, both CPU and CUDA produce finite and consistent
+  outputs. Why does CPU LayerNorm produce NaN while CUDA does not, given the same valid inputs?
+
+  PyTorch version: 2.6.0+cu126
+tags:
+  - "numerical"
+  - "cpu-cuda"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response identifies that the input values are at the extreme boundary of float32 representation"
+      - "Response explains that LayerNorm intermediate computations overflow at extremal float32 values, and this is expected, not a bug"
+    quality_factors:
+      - factor: "Response correctly explains the root cause (extremal float32 values causing overflow in LayerNorm internals) and why CPU and CUDA may differ"
+        weight: 0.4
+      - factor: "Response suggests at least one mitigation: use float64, scale inputs to a normal range, or reference the PyTorch numerical accuracy documentation on extremal values"
+        weight: 0.35
+      - factor: "Response references the PyTorch numerical accuracy documentation page on extremal values"
+        weight: 0.25

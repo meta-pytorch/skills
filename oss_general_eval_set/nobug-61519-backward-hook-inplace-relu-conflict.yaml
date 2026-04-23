@@ -1,0 +1,55 @@
+name: "nobug-61519-backward-hook-inplace-relu-conflict"
+description: "register_full_backward_hook crashes during forward when next module uses inplace ReLU"
+user_message: |
+  I'm using `register_full_backward_hook` to capture gradients from intermediate
+  layers for gradient-based visualization (Grad-CAM). When the next module after
+  the hooked module uses `ReLU(inplace=True)`, I get a RuntimeError during the
+  *forward* pass — not during backward as I'd expect.
+
+  ```python
+  import torch
+  from torch import nn
+
+  mod = nn.Sequential(
+      nn.Conv2d(3, 8, 3, padding=1),
+      nn.ReLU(),
+      nn.Conv2d(8, 8, 3, padding=1),
+      nn.ReLU(inplace=True)
+  )
+
+  def hook_g(m, input, output):
+      print(input[0].shape)
+
+  mod[2].register_full_backward_hook(hook_g)
+
+  out = mod(torch.rand((1, 3, 224, 224)))
+  ```
+
+  Error:
+  ```
+  RuntimeError: Output 0 of BackwardHookFunctionBackward is a view and is being
+  modified inplace. This view was created inside a custom Function (or is an
+  input/output of such a function) and the autograd logic to handle view+inplace
+  would override the custom backward associated with the custom Function,
+  leading to incorrect gradients. This behavior is forbidden.
+  ```
+
+  The error happens during the forward pass, not backward. The legacy
+  `register_backward_hook` works (with a deprecation warning). How can I
+  get backward hooks working with models that use inplace ReLU?
+
+  PyTorch version: 1.9+
+tags:
+  - "autograd"
+  - "hooks"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that the full backward hook wraps output in a view via a custom Function, which conflicts with subsequent in-place operations"
+      - "Response recommends using register_forward_hook to capture the output tensor and then calling output.register_hook(tensor_hook) for backward gradient capture"
+    quality_factors:
+      - factor: "Response correctly identifies the root cause as the view-creating mechanism of register_full_backward_hook conflicting with inplace ops"
+        weight: 0.6
+      - factor: "Response explains why the error occurs during forward (the view creation happens in forward, not backward) and why the legacy register_backward_hook still works"
+        weight: 0.4

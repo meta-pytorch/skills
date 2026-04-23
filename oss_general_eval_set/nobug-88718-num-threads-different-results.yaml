@@ -1,0 +1,46 @@
+name: "nobug-88718-num-threads-different-results"
+description: "Changing thread count with set_num_threads produces different nn.Linear results"
+user_message: |
+  Changing the number of intra-op threads with `torch.set_num_threads` causes
+  `nn.Linear` to produce different floating-point results for the same input.
+  The differences are small (~1e-8) but non-zero, and this makes exact
+  reproducibility impossible when the thread count varies between environments.
+
+  ```python
+  import torch
+
+  size_in = 56
+  size_out = 444
+
+  layer = torch.nn.Linear(size_in, size_out)
+  t = torch.randn(size_in)
+
+  torch.set_num_threads(1)
+  out1 = layer(t)
+
+  torch.set_num_threads(6)
+  out2 = layer(t)
+
+  print(torch.equal(out1, out2))        # False
+  print((out1 - out2).abs().max())       # ~1e-8
+  ```
+
+  I'm trying to ensure bit-exact reproducibility across different deployment
+  environments that may have different thread counts. Is this a bug, and is
+  there a way to get identical results regardless of thread count?
+
+  PyTorch version: 2.0.0
+tags:
+  - "numerical"
+  - "cpu"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that different thread counts change the parallel reduction order in the underlying BLAS library (MKL), producing different FP results"
+      - "Response explains floating-point non-associativity as the fundamental reason different reduction orders give different results"
+    quality_factors:
+      - factor: "Response correctly identifies the MKL/BLAS parallelization as the source and explains that this is expected behavior, not a bug"
+        weight: 0.5
+      - factor: "Response places this in the broader context of PyTorch reproducibility — mentioning that bit-exact reproducibility requires not just same seeds but also same hardware, CUDA flags, library versions, thread counts, etc."
+        weight: 0.5

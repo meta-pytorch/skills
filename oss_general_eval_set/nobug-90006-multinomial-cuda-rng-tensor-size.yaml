@@ -1,0 +1,49 @@
+name: "nobug-90006-multinomial-cuda-rng-tensor-size"
+description: "torch.multinomial CUDA RNG advances differently across GPU models"
+user_message: |
+  I'm trying to ensure reproducibility across different machines when using
+  `torch.multinomial` on CUDA tensors. Despite setting identical manual seeds
+  and using deterministic mode, I get different sampling results on machines
+  with different GPUs. The RNG state advances by different amounts after
+  a single `torch.multinomial` call depending on the machine.
+
+  ```python
+  import torch
+
+  torch.manual_seed(1234)
+  torch.cuda.manual_seed(1234)
+
+  t = torch.rand(256, 100000).to("cuda")
+  s1 = torch.cuda.get_rng_state()
+  _ = torch.multinomial(t, 1)
+  s2 = torch.cuda.get_rng_state()
+
+  print(sum(s2 - s1))
+  ```
+
+  On Machine A (smaller GPU): `tensor(113, dtype=torch.uint8)`
+  On Machine B (larger GPU): `tensor(160, dtype=torch.uint8)`
+
+  The CPU version advances the RNG identically on both machines. For smaller
+  tensor sizes (e.g., [5, 50000]), both machines agree. The divergence appears
+  only with larger tensors. Using `replacement=True` also avoids the issue,
+  but I need sampling without replacement.
+
+  Why does `torch.multinomial` on CUDA advance the RNG differently across GPUs?
+
+  PyTorch version: 1.13.0+cu117
+tags:
+  - "rng"
+  - "cuda"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that CUDA RNG advancement is GPU-architecture-dependent because the number of random numbers consumed depends on the grid-stride loop configuration"
+    quality_factors:
+      - factor: "Response correctly identifies the GPU-dependent RNG advancement mechanism and explains why CPU is unaffected"
+        weight: 0.35
+      - factor: "Response explains that multinomial without replacement uses a different code path (exponential_/Gumbel-max sampling) than with replacement, and this path's RNG consumption depends on tensor size and GPU geometry"
+        weight: 0.35
+      - factor: "Response provides practical guidance for cross-GPU reproducibility, such as performing the sampling on CPU or using a generator with explicit state management"
+        weight: 0.3

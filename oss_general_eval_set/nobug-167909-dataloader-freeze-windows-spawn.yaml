@@ -1,0 +1,40 @@
+name: "nobug-167909-dataloader-freeze-windows-spawn"
+description: "DataLoader with num_workers>0 freezes on Windows without __main__ guard"
+user_message: |
+  When using `DataLoader` with `num_workers > 0`, the training loop freezes randomly.
+  The issue disappears when `num_workers = 0`. I'm running on Windows 10 with Python 3.10.
+
+  ```python
+  from torch.utils.data import DataLoader, Dataset
+  import time
+
+  class MyDataset(Dataset):
+      def __getitem__(self, i):
+          time.sleep(0.1)
+          return i
+
+      def __len__(self):
+          return 50
+
+  loader = DataLoader(MyDataset(), batch_size=8, num_workers=4)
+  for batch in loader:
+      print(batch)
+  ```
+
+  The script hangs after printing a few batches. There is no error message.
+
+  PyTorch version: 2.3.0
+tags:
+  - "dataloader"
+  - "multiprocessing"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response identifies that the code must be wrapped in `if __name__ == '__main__':` for multiprocessing to work correctly on Windows"
+      - "Response explains that Windows uses spawn start method which re-imports the module, requiring the __main__ guard"
+    quality_factors:
+      - factor: "Response correctly identifies the missing __main__ guard as the root cause and explains the spawn vs fork distinction"
+        weight: 0.7
+      - factor: "Response references the PyTorch multiprocessing best practices documentation or Python's multiprocessing documentation about spawn"
+        weight: 0.3

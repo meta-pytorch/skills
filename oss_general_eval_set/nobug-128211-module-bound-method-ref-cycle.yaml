@@ -1,0 +1,55 @@
+name: "nobug-128211-module-bound-method-ref-cycle"
+description: "CUDA memory leak from reference cycle with bound method and register_buffer"
+user_message: |
+  CUDA memory usage grows every iteration even though I delete the module and call
+  `torch.cuda.empty_cache()`. The leak only happens when I both `register_buffer` and
+  assign a method to an instance variable.
+
+  ```python
+  import torch
+  import torch.nn as nn
+
+  class MyModule(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.register_buffer("test", torch.as_tensor(1.0))
+          self.which_foo = self.foo
+
+      def forward(self, x):
+          return x
+
+      def foo(self, x):
+          return
+
+  for _ in range(3):
+      m = MyModule().cuda()
+      del m
+      torch.cuda.empty_cache()
+      print("mem alloc:", torch.cuda.memory_allocated())
+  ```
+
+  Output shows memory growing each iteration:
+  ```
+  mem alloc: 512
+  mem alloc: 1024
+  mem alloc: 1536
+  ```
+
+  If I remove either the `register_buffer` line or the `self.which_foo = self.foo` line,
+  the leak disappears. Is this a PyTorch bug?
+
+  PyTorch version: 2.3.0+cu121
+tags:
+  - "memory"
+  - "nn-module"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response identifies that the bound method assignment creates a Python reference cycle preventing the module from being garbage collected"
+      - "Response suggests gc.collect(), avoiding bound method storage, or using weakref as a fix"
+    quality_factors:
+      - factor: "Response correctly identifies the reference cycle mechanism and explains why both register_buffer and the method assignment are needed to observe the leak"
+        weight: 0.7
+      - factor: "Response explains that the buffer holds a CUDA tensor which is what makes the leak visible in CUDA memory tracking, while the ref cycle is the actual cause"
+        weight: 0.3

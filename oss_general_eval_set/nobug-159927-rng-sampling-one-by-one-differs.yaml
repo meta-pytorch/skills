@@ -1,0 +1,42 @@
+name: "nobug-159927-rng-sampling-one-by-one-differs"
+description: "Sampling one-by-one gives different results than batch sampling with same seed"
+user_message: |
+  When using `torch.multinomial` (or `torch.rand`) with a manual seed, sampling one element
+  at a time gives different results than sampling multiple elements at once, even with the
+  same generator state.
+
+  ```python
+  import torch
+
+  # Sample 32 at once
+  g = torch.Generator(device='mps').manual_seed(2147483647)
+  batch_result = torch.rand(32, device='mps', generator=g)
+  print(batch_result[:4])  # tensor([0.8174, 0.8081, 0.4184, 0.0557])
+
+  # Sample 1 at a time
+  g = torch.Generator(device='mps').manual_seed(2147483647)
+  one_by_one = []
+  for _ in range(32):
+      one_by_one.append(torch.rand(1, device='mps', generator=g))
+  one_by_one = torch.cat(one_by_one)
+  print(one_by_one[:4])  # tensor([0.8174, 0.7168, ...]) -- differs after first element!
+  ```
+
+  The first element matches, but subsequent elements diverge. Sampling 2-by-2 or 4-by-4
+  all remain consistent with the batch result. Only 1-by-1 differs. Is this a bug in the
+  random number generator?
+
+  PyTorch version: 2.5.1
+tags:
+  - "rng"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that the RNG generates numbers in fixed-size blocks and unused values are discarded when the request is smaller than the block"
+      - "Response confirms this is expected behavior, not a bug"
+    quality_factors:
+      - factor: "Response correctly explains the block-based RNG mechanism and why 1-by-1 sampling diverges"
+        weight: 0.7
+      - factor: "Response advises generating all needed random numbers in a single call for reproducibility, or adjusting sampling strategy"
+        weight: 0.3

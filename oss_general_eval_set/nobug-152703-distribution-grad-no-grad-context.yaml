@@ -1,0 +1,46 @@
+name: "nobug-152703-distribution-grad-no-grad-context"
+description: "Categorical log_prob gradient is zero when constructed inside no_grad"
+user_message: |
+  I'm trying to compute gradients through `log_prob` of a `Categorical` distribution, but
+  the gradient is always zero. The gradient flows correctly for `Normal` but not for
+  `Categorical`. I'm constructing the distribution and sampling inside `torch.no_grad()`.
+
+  ```python
+  import torch
+  from torch.distributions import Categorical, Normal
+
+  probs = torch.tensor([0.25, 0.25, 0.25, 0.25], requires_grad=True)
+
+  with torch.no_grad():
+      dist = Categorical(probs=probs)
+      sample = dist.sample()
+      log_p = dist.log_prob(sample)
+
+  print(log_p.requires_grad)  # False -- no gradient!
+
+  # Compare with Normal (works outside no_grad):
+  mu = torch.tensor([0.0], requires_grad=True)
+  dist_n = Normal(mu, 1.0)
+  sample_n = dist_n.sample()
+  log_p_n = dist_n.log_prob(sample_n)
+  print(log_p_n.requires_grad)  # True -- gradient flows
+  ```
+
+  Why can't gradients be backpropagated through `Categorical.log_prob` but they work for
+  `Normal.log_prob`?
+
+  PyTorch version: 2.4.0
+tags:
+  - "autograd"
+  - "distributions"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response identifies that the torch.no_grad() context is preventing gradient computation for the Categorical case"
+      - "Response recommends constructing the distribution and computing log_prob outside of torch.no_grad()"
+    quality_factors:
+      - factor: "Response correctly identifies the no_grad context as the issue and explains why Normal appears to work (it was constructed outside no_grad in the example)"
+        weight: 0.7
+      - factor: "Response explains that sampling is inherently non-differentiable but log_prob should be differentiable w.r.t. distribution parameters when computed outside no_grad"
+        weight: 0.3

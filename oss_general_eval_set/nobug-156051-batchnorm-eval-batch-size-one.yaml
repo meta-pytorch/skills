@@ -1,0 +1,35 @@
+name: "nobug-156051-batchnorm-eval-batch-size-one"
+description: "BatchNorm1d errors with batch size 1 in eval mode when track_running_stats=False"
+user_message: |
+  `BatchNorm1d` raises an error with batch size 1 even after calling `.eval()`, but only when
+  `track_running_stats=False`. I expected `.eval()` to suppress the batch statistics computation.
+
+  ```python
+  import torch
+  import torch.nn as nn
+
+  bn = nn.BatchNorm1d(10, track_running_stats=False)
+  bn.eval()
+
+  x = torch.randn(1, 10)  # batch size = 1
+  out = bn(x)  # ValueError: Expected more than 1 value per channel when training
+  ```
+
+  With `track_running_stats=True` (default), this works fine in eval mode. Why does
+  `track_running_stats=False` cause BatchNorm to still require batch size > 1 even in eval mode?
+  Is this a bug?
+
+  PyTorch version: 2.7.0
+tags:
+  - "nn-module"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that with track_running_stats=False there are no running statistics available, so BatchNorm always uses batch statistics regardless of train/eval mode"
+      - "Response explains that eval mode switches to running stats but cannot do so when they don't exist"
+    quality_factors:
+      - factor: "Response correctly identifies that this is documented, expected behavior and explains the interaction between track_running_stats and train/eval modes"
+        weight: 0.6
+      - factor: "Response suggests workarounds such as using track_running_stats=True (default), or using InstanceNorm/GroupNorm for batch-size-1 scenarios"
+        weight: 0.4

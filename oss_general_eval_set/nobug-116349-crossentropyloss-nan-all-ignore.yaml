@@ -1,0 +1,36 @@
+name: "nobug-116349-crossentropyloss-nan-all-ignore"
+description: "CrossEntropyLoss returns NaN when all targets are ignore_index"
+user_message: |
+  When all elements of the target tensor are set to the `ignore_index` value (-100),
+  `nn.CrossEntropyLoss` with `reduction='mean'` returns `nan`. Is this a bug?
+
+  ```python
+  import torch
+  import torch.nn as nn
+
+  loss_fn = nn.CrossEntropyLoss(reduction='mean')
+
+  input = torch.randn(2, 5, 2, requires_grad=True)
+  target = torch.tensor([[-100, -100, -100, -100, -100],
+                          [-100, -100, -100, -100, -100]])
+
+  output = loss_fn(input.view(-1, 2), target.view(-1))
+  print(output)  # tensor(nan, grad_fn=<NllLossBackward0>)
+  ```
+
+  I expected the loss to be 0.0 when all targets are ignored, not NaN. This happens only
+  with `reduction='mean'`. With `reduction='sum'` I get 0.0.
+
+  PyTorch version: 2.1.0
+tags:
+  - "loss"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that NaN results from dividing zero loss sum by zero non-ignored element count in mean reduction"
+    quality_factors:
+      - factor: "Response correctly identifies the 0/0 division as the root cause and explains why sum reduction returns 0 but mean returns NaN"
+        weight: 0.6
+      - factor: "Response suggests practical workarounds such as checking for all-ignored batches before computing loss, or using reduction='sum' with manual averaging"
+        weight: 0.4

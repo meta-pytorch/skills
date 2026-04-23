@@ -1,0 +1,47 @@
+name: "nobug-136009-ddp-amp-gradient-mismatch"
+description: "DDP weights diverge when GradScaler scale factors differ across ranks"
+user_message: |
+  When using DDP with AMP (GradScaler), the model weights diverge across GPUs after a few
+  training steps. If I set the same initial scale factor for all GradScaler instances, the
+  weights stay synchronized. But with different initial scales, they diverge.
+
+  ```python
+  import torch
+  import torch.distributed as dist
+  from torch.nn.parallel import DistributedDataParallel as DDP
+  from torch.amp import GradScaler, autocast
+
+  # On each rank:
+  model = MyModel().cuda(rank)
+  ddp_model = DDP(model, device_ids=[rank])
+  optimizer = torch.optim.Adam(ddp_model.parameters(), lr=1e-3)
+  scaler = GradScaler(init_scale=2.**16)  # same scale on all ranks -> works
+  # scaler = GradScaler()  # default scale may differ -> weights diverge
+
+  for data, target in dataloader:
+      optimizer.zero_grad()
+      with autocast(device_type='cuda'):
+          output = ddp_model(data)
+          loss = criterion(output, target)
+      scaler.scale(loss).backward()
+      scaler.step(optimizer)
+      scaler.update()
+  ```
+
+  Why do different GradScaler scale factors cause DDP model weights to diverge?
+
+  PyTorch version: 2.4.0
+tags:
+  - "distributed"
+  - "amp"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that DDP reduces gradients during backward() before the scaler unscales them, so different scale factors cause inconsistent gradient synchronization"
+      - "Response recommends using the same GradScaler scale factor across all ranks"
+    quality_factors:
+      - factor: "Response correctly explains the interaction between DDP gradient reduction timing and GradScaler scaling"
+        weight: 0.7
+      - factor: "Response explains that if the scale factor is the same on all ranks, the all-reduced gradients remain consistent because the same scaling is applied uniformly"
+        weight: 0.3

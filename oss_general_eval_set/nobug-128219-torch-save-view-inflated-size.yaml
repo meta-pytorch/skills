@@ -1,0 +1,37 @@
+name: "nobug-128219-torch-save-view-inflated-size"
+description: "torch.save produces huge files because tensors are views sharing storage"
+user_message: |
+  When I save my model's state_dict during training, each parameter file is ~1.6GB. But if
+  I move the parameters to CPU first with `.cpu()`, the files are much smaller (~98MB total
+  for 64 parameters). Why does the size of `state_dict` decrease so dramatically when I move
+  the parameters to CPU?
+
+  ```python
+  import torch
+
+  state_dict = torch.load('./model_checkpoint.bin')
+
+  for k, v in state_dict.items():
+      torch.save(v, f'./gpu_{k}.bin')           # each file is ~1.6GB
+      torch.save(v.cpu(), f'./cpu_{k}.bin')      # each file is much smaller
+  ```
+
+  The model has 64 parameters and the total expected parameter size is ~98MB. Why are the
+  GPU-saved files 100x larger? Is there information loss when saving the CPU version?
+
+  PyTorch version: 2.3.0
+tags:
+  - "serialization"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that tensors that are views share underlying storage, and torch.save serializes the full storage"
+      - "Response explains that .cpu() creates an independent contiguous tensor that no longer shares the large underlying storage"
+    quality_factors:
+      - factor: "Response correctly identifies the tensor view/storage relationship as the root cause and explains why .cpu() produces smaller files"
+        weight: 0.6
+      - factor: "Response recommends using .clone() as an alternative to .cpu() for creating independent copies without changing device"
+        weight: 0.2
+      - factor: "Response clarifies that there is no information loss — both the GPU and CPU saved files contain the same parameter data"
+        weight: 0.2

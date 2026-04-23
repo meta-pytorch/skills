@@ -1,0 +1,41 @@
+name: "nobug-173904-matmul-broadcast-memory-explosion"
+description: "Batched matmul with broadcasting allocates 3GB for a 96MB output"
+user_message: |
+  When performing a batched matmul with broadcasting on CUDA using 4D+ tensors,
+  PyTorch allocates vastly more memory than the output tensor requires. The
+  operation below should produce a ~96 MB output, but PyTorch tries to
+  allocate ~3 GB, causing OOM on smaller GPUs.
+
+  ```python
+  import torch
+
+  a = torch.empty(1, 32768, 8, 1, 32, dtype=torch.half, device='cuda')
+  b = torch.empty(8, 192, 32, dtype=torch.half, device='cuda')
+  c = a @ b.mT  # expected output: (1, 32768, 8, 1, 192) ~ 96 MB
+  ```
+
+  nvidia-smi shows ~3.3 GB peak allocation even though the output is only ~96 MB.
+  With limited GPU memory this causes:
+  ```
+  OutOfMemoryError: CUDA out of memory. Tried to allocate 3.00 GiB.
+  ```
+
+  The memory spike is temporary (memory_allocated returns ~232 MB after the
+  operation) but the peak allocation is enough to cause OOM. Why does this
+  simple matmul use so much temporary memory, and is there a workaround?
+
+  PyTorch version: 2.10.0+cu128
+tags:
+  - "memory"
+  - "cuda"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that matmul's expand+reshape path materializes the broadcast-expanded tensor, causing the memory spike"
+      - "Response recommends torch.einsum with an appropriate subscript string as the memory-efficient alternative"
+    quality_factors:
+      - factor: "Response correctly identifies the stride-0 tensor materialization during bmm lowering and provides the einsum workaround"
+        weight: 0.6
+      - factor: "Response explains why einsum avoids the problem (it uses a different internal path like sumproduct_pair that handles broadcasting without materializing)"
+        weight: 0.4

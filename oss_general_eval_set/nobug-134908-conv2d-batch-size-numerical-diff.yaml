@@ -1,0 +1,60 @@
+name: "nobug-134908-conv2d-batch-size-numerical-diff"
+description: "Conv2d on CPU gives different results for batched vs one-by-one inference"
+user_message: |
+  The output of nn.Conv2d on CPU differs depending on whether I feed a batch of inputs at once
+  or feed them one-by-one and concatenate. The difference is about 1e-6. On CUDA, the results
+  are identical. Is this a bug in the CPU convolution?
+
+  ```python
+  import torch
+  from torch.nn import Conv2d
+
+  torch.manual_seed(13009)
+
+  ci = 4    # input channels (>1 required to trigger)
+  co = 3    # output channels (>1 required to trigger)
+  h = 8
+  w = 6
+  k = 3
+  device = "cpu"
+
+  c2d = Conv2d(ci, co, k, 1, 0, 1, device=device)
+
+  for i in range(10):
+      x = torch.randn(2, ci, h, w, device=device)
+      y1 = c2d(x)                                                           # batch of 2
+      y2 = torch.cat([c2d(x[0:1, :, :, :]), c2d(x[1:2, :, :, :])], dim=0) # one-by-one
+      diff = torch.sum(torch.abs(y2 - y1), dim=[1, 2, 3])
+      print(diff)
+  ```
+
+  CPU output (nonzero diffs ~1e-6):
+  ```
+  tensor([3.5465e-06, 5.0913e-06], grad_fn=<SumBackward1>)
+  tensor([4.6017e-06, 4.5355e-06], grad_fn=<SumBackward1>)
+  tensor([3.7085e-06, 3.9315e-06], grad_fn=<SumBackward1>)
+  ```
+
+  CUDA output (exact zeros):
+  ```
+  tensor([0., 0.], device='cuda:0', grad_fn=<SumBackward1>)
+  ```
+
+  This only happens on CPU and only when both input and output channels are >1.
+  Using float64 on CPU also eliminates the difference.
+
+  PyTorch version: 2.0.1+cu118
+tags:
+  - "numerical"
+  - "cpu"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that CPU selects different convolution algorithm implementations depending on batch size"
+      - "Response states that ~1e-6 differences are within expected floating-point tolerance and this is not a bug"
+    quality_factors:
+      - factor: "Response correctly identifies the algorithm selection difference (oneDNN for BS>1 vs native for BS==1) as the root cause"
+        weight: 0.6
+      - factor: "Response advises using torch.allclose with appropriate tolerance for comparing outputs, or using float64 for exact reproducibility"
+        weight: 0.4

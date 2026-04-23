@@ -1,0 +1,35 @@
+name: "nobug-152845-beta-entropy-negative-values"
+description: "Beta distribution entropy returns negative values for valid parameters"
+user_message: |
+  `torch.distributions.Beta.entropy()` returns negative values for perfectly valid alpha/beta
+  parameters. Entropy should always be non-negative, so I think the sign is flipped.
+
+  ```python
+  import torch
+
+  alpha = torch.tensor([1.1, 1.2, 1.3])
+  beta = torch.tensor([1.3, 1.2, 1.1])
+
+  dist = torch.distributions.Beta(alpha, beta)
+  print(f"Beta Entropy: {dist.entropy()}")
+  # Beta Entropy: tensor([-0.0206, -0.0108, -0.0206])
+  ```
+
+  All values are negative. I verified with a custom implementation using `lgamma` and
+  `digamma` that my manual calculation gives positive values. Is this a bug in PyTorch's
+  Beta distribution entropy?
+
+  PyTorch version: 2.7.0+cu128
+tags:
+  - "distributions"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that continuous distribution entropy (differential entropy) can be negative, unlike discrete entropy"
+      - "Response confirms PyTorch's implementation is correct and the user's expectation of non-negative entropy is incorrect for continuous distributions"
+    quality_factors:
+      - factor: "Response correctly distinguishes differential entropy from Shannon entropy and explains why negative values are mathematically valid for the Beta distribution"
+        weight: 0.7
+      - factor: "Response provides mathematical context, such as noting that Beta(alpha, beta) with alpha, beta close to 1 can have negative entropy because the distribution is more concentrated than the uniform distribution"
+        weight: 0.3

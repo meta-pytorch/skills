@@ -1,0 +1,74 @@
+name: "nobug-104690-fsdp-mixed-requires-grad"
+description: "FSDP errors with mixed frozen/trainable parameters in LoRA/PEFT setup"
+user_message: |
+  I'm trying to use FSDP with a LoRA-style PEFT setup where each transformer
+  layer has both frozen (requires_grad=False) and trainable parameters. When I
+  wrap the model with FSDP using transformer_auto_wrap_policy and
+  use_orig_params=True, I get an error about non-uniform requires_grad.
+
+  ```python
+  import functools
+  import torch
+  import torch.nn as nn
+  from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+  from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
+  class Attention(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.q = nn.Linear(100, 100)           # trainable
+          self.k_nograd = nn.Linear(100, 100)     # frozen
+          for param in self.k_nograd.parameters():
+              param.requires_grad = False
+
+  class FFN(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.linear = nn.Linear(100, 100)       # trainable
+          self.linear_nograd = nn.Linear(100, 100) # frozen
+          for param in self.linear_nograd.parameters():
+              param.requires_grad = False
+
+  class TransformerBlock(nn.Module):
+      def __init__(self):
+          super().__init__()
+          self.attn = Attention()
+          self.ffn = FFN()
+
+  model = TransformerBlock()
+  model = FSDP(
+      model,
+      auto_wrap_policy=functools.partial(
+          transformer_auto_wrap_policy,
+          transformer_layer_cls=[Attention, FFN],
+      ),
+      use_orig_params=True,
+      device_id=torch.cuda.current_device(),
+  )
+  ```
+
+  Error:
+  ```
+  ValueError: `FlatParameter` requires uniform `requires_grad`
+  ```
+
+  I've set `use_orig_params=True` as suggested in related issues, but still get
+  the error. How do I use FSDP with mixed frozen/trainable parameters?
+
+  PyTorch version: 2.0.1
+tags:
+  - "distributed"
+  - "fsdp"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that FSDP's FlatParameter cannot mix requires_grad=True and requires_grad=False within the same FSDP unit"
+      - "Response recommends using lambda_auto_wrap_policy (or similar) to wrap trainable and frozen submodules in separate FSDP units"
+    quality_factors:
+      - factor: "Response correctly explains the FSDP flat parameter design limitation and provides actionable wrapping strategies"
+        weight: 0.35
+      - factor: "Response notes that use_orig_params=True support for non-uniform requires_grad was added after 2.0.1 (in nightlies/2.2+), so upgrading PyTorch is also necessary"
+        weight: 0.35
+      - factor: "Response explains that even with use_orig_params=True on newer versions, gradient memory will still be allocated for all parameters in the flat buffer (not just trainable ones), and separating frozen/trainable into different FSDP units is the way to optimize memory"
+        weight: 0.3

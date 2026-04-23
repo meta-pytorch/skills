@@ -1,0 +1,42 @@
+name: "nobug-105742-unique-sorted-false-still-sorts"
+description: "torch.unique with sorted=False does not preserve insertion order"
+user_message: |
+  I'm using `torch.unique` with `sorted=False` to get unique elements and their
+  counts while preserving the original insertion order. However, the output is
+  neither sorted nor in insertion order — it seems to be in some arbitrary order.
+
+  ```python
+  import torch
+
+  unique_classes, counts = torch.unique(
+      input=torch.tensor([0, 0, 2, 1, 1, 1]).long(),
+      sorted=False,
+      return_counts=True
+  )
+  print(unique_classes, counts)
+  ```
+
+  Output:
+  ```
+  (tensor([1, 2, 0]), tensor([3, 1, 2]))
+  ```
+
+  I expected the output to be `tensor([0, 2, 1])` (insertion order) since I
+  specified `sorted=False`. Why does `torch.unique` not preserve the original
+  order when `sorted=False`?
+
+  PyTorch version: 2.0.1
+tags:
+  - "api-semantics"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that torch.unique always sorts internally and sorted=False does not guarantee insertion order"
+    quality_factors:
+      - factor: "Response correctly explains the semantics of the sorted parameter and the internal sorting behavior"
+        weight: 0.4
+      - factor: "Response recommends torch.unique_consecutive (possibly with a prior sort) as an alternative for users who need order-preserving uniqueness"
+        weight: 0.35
+      - factor: "Response explains that the internal sorting is done for efficiency (similar to NumPy) and that implementing true insertion-order uniqueness would require a different algorithm"
+        weight: 0.25

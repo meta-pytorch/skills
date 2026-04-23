@@ -1,0 +1,76 @@
+name: "nobug-81296-checkpoint-reentrant-hook-called-twice"
+description: "Gradient hook fires twice with shared parameters and activation checkpointing"
+user_message: |
+  I have a model where two layers share the same weight parameter. I'm using
+  `register_post_accumulate_grad_hook` on that shared weight to trigger
+  gradient synchronization in distributed training. Without activation
+  checkpointing, the hook fires exactly once per backward pass as expected.
+  But when I wrap one of the layers with `torch.utils.checkpoint.checkpoint`,
+  the hook fires twice during backward.
+
+  ```python
+  import torch
+  from torch.utils import checkpoint
+
+  layer1 = torch.nn.Linear(3, 3)
+  layer2 = torch.nn.Linear(3, 3)
+  layer2.weight = layer1.weight  # shared parameter
+
+  param = layer1.weight
+  param_tmp = param.expand_as(param)
+  grad_acc = param_tmp.grad_fn.next_functions[0][0]
+
+  def f(*args):
+      print('Gradient hook is called!')
+
+  grad_acc.register_hook(f)
+
+  # Without checkpoint: hook called once
+  x = torch.randn(3, requires_grad=True)
+  x = layer1(x)
+  x = layer2(x)
+  o = x.sum()
+  o.backward()
+
+  print('========================')
+
+  # With checkpoint: hook called twice
+  def custom():
+      def custom_forward(*inputs):
+          return layer1(*inputs)
+      return custom_forward
+
+  x = torch.randn(3, requires_grad=True)
+  x = checkpoint.checkpoint(custom(), x)
+  x = layer2(x)
+  o = x.sum()
+  o.backward()
+  ```
+
+  Output:
+  ```
+  Gradient hook is called!
+  ========================
+  Gradient hook is called!
+  Gradient hook is called!
+  ```
+
+  Why does the gradient hook fire twice when activation checkpointing is used
+  with shared parameters? Is this a bug?
+
+  PyTorch version: 1.11.0
+tags:
+  - "autograd"
+  - "checkpointing"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that reentrant checkpointing triggers a nested backward call, causing the hook to fire in both the outer and inner backward passes"
+      - "Response explains that the outer backward does not see the shared weight dependency through the checkpoint boundary, so the hook fires prematurely"
+      - "Response recommends checkpoint(..., use_reentrant=False) as the solution"
+    quality_factors:
+      - factor: "Response correctly explains the reentrant vs non-reentrant checkpointing mechanism and why shared parameters trigger double hook invocation"
+        weight: 0.7
+      - factor: "Response explains that use_reentrant=False uses saved_tensors_hooks to avoid the nested backward, keeping the full dependency graph visible in a single backward pass"
+        weight: 0.3

@@ -1,0 +1,36 @@
+name: "nobug-140469-non-leaf-tensor-optimizer"
+description: "Multiplying a tensor with requires_grad makes it non-leaf, breaking optimizer"
+user_message: |
+  I'm getting a ValueError when trying to create an optimizer for a tensor that I set
+  `requires_grad=True` on. The error says "can't optimize a non-leaf Tensor."
+
+  ```python
+  import torch
+
+  image_syn = torch.randn(size=(10, 3, 32, 32), dtype=torch.float,
+                           requires_grad=True, device="cuda") * 0.01
+  optimizer_img = torch.optim.SGD([image_syn], lr=0.01, momentum=0.5)
+  ```
+
+  Error:
+  ```
+  ValueError: can't optimize a non-leaf Tensor
+  ```
+
+  I don't understand why `image_syn` is not a leaf tensor — I created it with `requires_grad=True`.
+  Why does multiplying by 0.01 change whether it's a leaf?
+
+  PyTorch version: 2.3.0+cu121
+tags:
+  - "autograd"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that the multiplication creates a non-leaf tensor because it is the result of a computation on a leaf tensor"
+      - "Response recommends separating tensor creation from the multiplication so the leaf tensor is passed to the optimizer"
+    quality_factors:
+      - factor: "Response correctly explains leaf vs non-leaf tensor distinction in PyTorch autograd and provides the correct fix"
+        weight: 0.7
+      - factor: "Response explains what a leaf tensor is in PyTorch (created by the user, not the result of an operation) and why only leaf tensors can be optimizer parameters"
+        weight: 0.3

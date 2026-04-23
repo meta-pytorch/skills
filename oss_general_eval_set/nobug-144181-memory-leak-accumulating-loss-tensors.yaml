@@ -1,0 +1,65 @@
+name: "nobug-144181-memory-leak-accumulating-loss-tensors"
+description: "RAM grows when accumulating loss tensors without .item()"
+user_message: |
+  I'm training a HiFiGAN model and tracking average losses per epoch by accumulating them in a
+  running sum. RAM usage grows by ~3MB per training step, consuming ~10GB by the end of a 3500-step
+  epoch. The memory drops after `torch.cuda.empty_cache()` at epoch end, but this growth makes
+  training unstable for longer epochs.
+
+  ```python
+  epoch_disc_sum = 0.0
+  epoch_gen_sum = 0.0
+
+  for batch_idx, info in data_iterator:
+      phone, pitch, spec, wave = info
+
+      use_amp = config.train.fp16_run and device.type == "cuda"
+      with autocast(enabled=use_amp):
+          model_output = net_g(phone, pitch, spec)
+          y_hat, x_mask, z_mask, (z, z_p, m_p, logs_p, m_q, logs_q) = model_output
+          y_d_hat_r, y_d_hat_g, _, _ = net_d(wave, y_hat.detach())
+          with autocast(enabled=False):
+              loss_disc, _, _ = discriminator_loss(y_d_hat_r, y_d_hat_g)
+
+      epoch_disc_sum += loss_disc  # <-- accumulating here
+      optim_d.zero_grad()
+      scaler.scale(loss_disc).backward()
+      scaler.unscale_(optim_d)
+      scaler.step(optim_d)
+      scaler.update()
+
+      with autocast(enabled=use_amp):
+          _, y_d_hat_g, fmap_r, fmap_g = net_d(wave, y_hat)
+          with autocast(enabled=False):
+              loss_mel = fn_mel_loss(wave, y_hat) * config.train.c_mel / 3.0
+              loss_env = envelope_loss(wave, y_hat)
+              loss_kl = kl_loss(z_p, logs_q, m_p, logs_p, z_mask) * config.train.c_kl
+              loss_fm = feature_loss(fmap_r, fmap_g)
+              loss_gen, _ = generator_loss(y_d_hat_g)
+              loss_gen_all = loss_gen + loss_fm + loss_mel + loss_kl + loss_env
+
+      epoch_gen_sum += loss_gen_all  # <-- accumulating here
+      optim_g.zero_grad()
+      scaler.scale(loss_gen_all).backward()
+      scaler.unscale_(optim_g)
+      scaler.step(optim_g)
+      scaler.update()
+  ```
+
+  Is this a memory leak in PyTorch?
+
+  PyTorch version: 2.3.1+cu121
+tags:
+  - "autograd"
+  - "memory"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that accumulating loss tensors retains the computation graph, causing memory growth"
+      - "Response recommends using .item() to detach the scalar from the computation graph before accumulating"
+    quality_factors:
+      - factor: "Response correctly identifies the root cause (computation graph retention) and provides the .item() fix"
+        weight: 0.7
+      - factor: "Response explains why adding tensors with grad_fn to a float prevents garbage collection of intermediate computation graph nodes"
+        weight: 0.3

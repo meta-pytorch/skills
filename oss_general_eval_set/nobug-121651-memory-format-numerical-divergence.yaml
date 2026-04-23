@@ -1,0 +1,80 @@
+name: "nobug-121651-memory-format-numerical-divergence"
+description: "channels_last memory format causes numerical divergence during training"
+user_message: |
+  I'm training the same model with identical weights and data, but when I convert
+  the model to channels_last memory format, the parameters diverge after a few
+  training iterations compared to the contiguous format version. This happens
+  even with deterministic mode enabled and identical seeds.
+
+  Specifically, I observe these relationships:
+  - contiguous model + channels_last data == channels_last model + channels_last data
+  - contiguous model + contiguous data != channels_last model + contiguous data
+
+  The divergence only appears when `BatchNorm2d` is in the model.
+
+  ```python
+  import torch
+  import numpy as np
+  import random
+
+  def seed_all(seed=42):
+      torch.manual_seed(seed)
+      np.random.seed(seed)
+      random.seed(seed)
+
+  torch.backends.cudnn.deterministic = True
+  torch.backends.cudnn.benchmark = False
+  torch.use_deterministic_algorithms(True, warn_only=True)
+
+  batch_size, C, H, W = 2, 1, 3, 3
+
+  def build_model():
+      return torch.nn.Sequential(
+          torch.nn.Conv2d(C, C, 3, padding=1),
+          torch.nn.BatchNorm2d(C),
+          torch.nn.ReLU6(inplace=True),
+      ).cuda()
+
+  seed_all()
+  model_cl = build_model()
+  torch.nn.utils.convert_conv2d_weight_memory_format(model_cl, torch.channels_last)
+  opt_cl = torch.optim.Adam(model_cl.parameters())
+
+  seed_all()
+  model_ct = build_model()
+  opt_ct = torch.optim.Adam(model_ct.parameters())
+
+  data = torch.rand(batch_size, C, H, W).cuda()
+
+  for i in range(10):
+      seed_all(i)
+      out_cl = model_cl(data).sum()
+      out_cl.backward()
+      opt_cl.step(); opt_cl.zero_grad()
+
+      out_ct = model_ct(data).sum()
+      out_ct.backward()
+      opt_ct.step(); opt_ct.zero_grad()
+
+      if not torch.allclose(model_cl[0].weight, model_ct[0].weight, atol=1e-5):
+          print(f"Diverged at iteration {i}")
+          break
+  ```
+
+  Is this a bug in channels_last support or BatchNorm2d?
+
+  PyTorch version: 2.3.0
+tags:
+  - "numerical"
+  - "memory-format"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that different memory formats trigger different kernel selections with different reduction orders"
+      - "Response explains that FP non-associativity causes different reduction orders to produce numerically different results that compound over iterations"
+    quality_factors:
+      - factor: "Response correctly identifies the root cause as kernel dispatch differences due to memory layout, not a bug in BatchNorm2d or channels_last"
+        weight: 0.6
+      - factor: "Response mentions that PyTorch makes no guarantees about numerical consistency across different memory layouts"
+        weight: 0.4

@@ -1,0 +1,50 @@
+name: "nobug-93950-embedding-padding-idx-jacobian-mismatch"
+description: "Forward-mode and reverse-mode Jacobians disagree at embedding padding_idx"
+user_message: |
+  When using `torch.autograd.functional.jacobian` on `F.embedding` with a
+  `padding_idx`, the forward-mode and reverse-mode Jacobians disagree. Without
+  `padding_idx`, they are identical. Is this a bug in PyTorch's autograd?
+
+  ```python
+  import torch
+  from torch.autograd.functional import jacobian
+
+  torch.manual_seed(420)
+  weight = torch.randn(10, 3)
+
+  def func(weight):
+      input = torch.tensor([[1, 2, 4, 5], [4, 3, 2, 9]])
+      output = torch.nn.functional.embedding(
+          input=input, weight=weight, padding_idx=-1
+      )
+      return output
+
+  rev_jacobian = jacobian(
+      func, (weight.clone().requires_grad_(),), vectorize=True
+  )
+  fwd_jacobian = jacobian(
+      func, (weight.clone().requires_grad_(),), vectorize=True,
+      strategy="forward-mode"
+  )
+
+  print(torch.allclose(rev_jacobian[0], fwd_jacobian[0]))
+  # False
+  ```
+
+  Setting `padding_idx=None` makes the Jacobians match. Why do forward-mode
+  and reverse-mode give different results when padding_idx is specified?
+
+  PyTorch version: 2.0.0
+tags:
+  - "autograd"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that the analytical gradient at the padding_idx row is intentionally zeroed in reverse mode but forward mode computes the raw JVP without this correction"
+      - "Response explains this is expected behavior that does not affect training since the padding row is treated as constant"
+    quality_factors:
+      - factor: "Response correctly identifies the forward-mode vs reverse-mode gradient inconsistency at the padding_idx row as expected behavior"
+        weight: 0.6
+      - factor: "Response suggests using nn.Embedding (which initializes the padding row to zero) rather than F.embedding to avoid confusion, or explains that the padding row gradient difference can be safely ignored"
+        weight: 0.4

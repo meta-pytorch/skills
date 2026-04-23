@@ -1,0 +1,65 @@
+name: "nobug-51539-adam-weight-decay-cpu-denormals"
+description: "Adam with weight_decay progressively slows down on CPU due to denormal floats"
+user_message: |
+  Training with the Adam optimizer on CPU progressively slows down over time
+  when using weight_decay. Without weight_decay, each batch of 500 iterations
+  takes a consistent ~0.4s. With weight_decay, the time per batch grows from
+  ~0.5s to over ~2.5s within a few thousand iterations. The slowdown is
+  proportional to the weight_decay value.
+
+  ```python
+  import time
+  import torch
+  import torch.nn as nn
+  from torch.optim import Adam
+
+  class MLPQFunction(nn.Module):
+      def __init__(self, obs_dim, hidden_dim):
+          super().__init__()
+          self.q = nn.Sequential(
+              nn.Linear(obs_dim, hidden_dim),
+              nn.ReLU(),
+              nn.Linear(hidden_dim, 1)
+          )
+      def forward(self, obs, act):
+          return self.q(obs)
+
+  q_function = MLPQFunction(20, 256)
+  q_optimizer = Adam(q_function.parameters(), lr=3e-4, weight_decay=1e-1)
+  torch.set_num_threads(2)
+
+  start = time.perf_counter()
+  last = start
+  for j in range(50000):
+      q_optimizer.zero_grad()
+      o = torch.rand(256, 20)
+      q = q_function(o, None)
+      loss = ((q - torch.rand(256))**2).mean()
+      loss.backward()
+      q_optimizer.step()
+      if j % 500 == 0:
+          curr = time.perf_counter()
+          print(f'Iter {j}: total {curr-start:.2f}s, last 500: {curr-last:.2f}s')
+          last = curr
+  ```
+
+  Without weight_decay: each 500-iteration block takes ~0.41s consistently.
+  With weight_decay=0.1: grows from ~0.5s to ~2.5s+ over training.
+
+  Is this a memory leak in the Adam optimizer?
+
+  PyTorch version: 2.0.1+cpu
+tags:
+  - "optimizer"
+  - "cpu"
+  - "set2"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response identifies CPU denormal (subnormal) floating-point numbers as the root cause of progressive slowdown"
+      - "Response recommends calling torch.set_flush_denormal(True) to flush denormals to zero"
+    quality_factors:
+      - factor: "Response correctly identifies the denormal number mechanism and provides the torch.set_flush_denormal fix"
+        weight: 0.6
+      - factor: "Response clarifies this is not a memory leak but a CPU hardware performance issue with denormal float arithmetic, and explains why the slowdown is proportional to weight_decay magnitude"
+        weight: 0.4

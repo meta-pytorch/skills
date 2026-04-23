@@ -1,0 +1,53 @@
+name: "nobug-161841-median-different-indices-cpu-gpu"
+description: "torch.median returns different indices on CPU vs GPU for tied values"
+user_message: |
+  `torch.median` returns different indices on CPU vs GPU for the same input tensor. The values
+  are correct on both devices, but the indices differ.
+
+  ```python
+  import torch
+
+  torch.manual_seed(9223372036854775807)
+  input_tensor = torch.full((3, 4), 1.0, dtype=torch.double)
+  dim = 1
+  keepdim = False
+
+  cpu_result = torch.median(input_tensor.cpu(), dim=dim, keepdim=keepdim)
+  cuda_result = torch.median(input_tensor.cuda(), dim=dim, keepdim=keepdim)
+
+  print("CPU:", cpu_result)
+  print("CUDA:", cuda_result)
+  ```
+
+  CPU output:
+  ```
+  torch.return_types.median(
+    values=tensor([1., 1., 1.], dtype=torch.float64),
+    indices=tensor([1, 1, 1]))
+  ```
+
+  CUDA output:
+  ```
+  torch.return_types.median(
+    values=tensor([1., 1., 1.], device='cuda:0', dtype=torch.float64),
+    indices=tensor([0, 0, 0], device='cuda:0'))
+  ```
+
+  Both return the correct median value, but CPU picks index 1 while CUDA picks index 0.
+  Is this a bug?
+
+  PyTorch version: 2.5.1, CUDA 12.4
+tags:
+  - "cpu-cuda"
+  - "set1"
+llm_judge:
+  rubric:
+    critical_requirements:
+      - "Response explains that the index returned for tied median values is not guaranteed to be consistent across devices"
+    quality_factors:
+      - factor: "Response correctly identifies the tie-breaking behavior as the cause and confirms both results are valid"
+        weight: 0.5
+      - factor: "Response references the torch.median documentation which notes this behavior"
+        weight: 0.3
+      - factor: "Response mentions torch.use_deterministic_algorithms as a way to get consistent behavior if needed"
+        weight: 0.2
