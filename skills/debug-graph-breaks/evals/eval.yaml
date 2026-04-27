@@ -1,15 +1,11 @@
-eval_version: "1"
-skill_name: "debug-graph-breaks"
-skill_path: "skills/debug-graph-breaks/SKILL.md"
-
+eval_version: '1'
+skill_name: debug-graph-breaks
+skill_path: skills/debug-graph-breaks/SKILL.md
 models:
-  - "claude-opus-4-6"
-
+  - claude-opus-4-6
 test_cases:
-  - name: "bartmodel_fullgraph_graph_breaks"
-    description: >
-      Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BartModel
-      compiled with torch.compile, producing a working fixed script.
+  - name: ariamodel-unsupported-context-manager
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace AriaModel compiled with torch.compile.
     user_message: |
       /pt2:debug-graph-breaks
       I want to compile the following model with torch.compile, but it's hitting graph breaks.
@@ -20,53 +16,3963 @@ test_cases:
       import torch
       from transformers import AutoModel
 
-      model = AutoModel.from_pretrained("facebook/bart-base")
+      model = AutoModel.from_pretrained("AriaModel", trust_remote_code=True)
       model.eval()
 
       compiled_model = torch.compile(model, backend="eager", fullgraph=True)
-
-      dummy_input = {
-          "input_ids": torch.randint(0, 1000, (1, 32)),
-          "attention_mask": torch.ones(1, 32, dtype=torch.long),
-      }
-      output = compiled_model(**dummy_input)
       ```
-
-      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current working directory.
-
-      To run python, make sure you first activate the pytorch-3.12 conda environment with `conda activate pytorch-3.12`.
-
-      When fixing graph breaks that originate in the transformers library, create a subclass
-      of the model that overrides the problematic method(s) with compile-compatible implementations.
 
       The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
       When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
-      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed
-      context, examples, and fix suggestions.
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
     tags:
-      - "smoke"
-      - "transformers"
-      - "fullgraph"
+      - smoke
+      - transformers
+      - fullgraph
     deterministic_checks:
-      - type: "skill_invoked"
-        skill: "debug-graph-breaks"
+      - type: skill_invoked
+        skill: debug-graph-breaks
     llm_judge:
       rubric:
-        critical_requirements:
-          - "Agent runs the script with TORCH_LOGS='graph_breaks' or fullgraph=True to detect graph breaks"
-          - "Agent identifies the source of at least one graph break in the user code or transformers library"
-          - "Agent explains the root cause of the graph break and why Dynamo cannot trace it"
-          - "Agent produces a fixed_model.py script that either compiles with fullgraph=True
-            or has fewer graph breaks than the original"
-        quality_factors:
-          - factor: "Accuracy — correctly identifies the cause of the graph break and
-              explains why Dynamo cannot trace it"
+        critical_requirements: &id001
+          - Agent runs the script with TORCH_LOGS='graph_breaks' or fullgraph=True to detect graph breaks
+          - Agent identifies the source of at least one graph break in the user code or transformers library
+          - Agent explains the root cause of the graph break and why Dynamo cannot trace it
+          - Agent produces a fixed_model.py script that either compiles with fullgraph=True or has fewer graph breaks than the original
+        quality_factors: &id002
+          - factor: Accuracy — correctly identifies the cause of the graph break and explains why Dynamo cannot trace it
             weight: 0.2
-          - factor: "Actionability — provides concrete fix strategies with working code examples"
+          - factor: Actionability — provides concrete fix strategies with working code examples
             weight: 0.2
-          - factor: "Graph break reduction — the fixed script has fewer graph breaks or
-              achieves fullgraph compilation"
+          - factor: Graph break reduction — the fixed script has fewer graph breaks or achieves fullgraph compilation
             weight: 0.5
-          - factor: "Documentation use — references the graph break documentation website
-              or GB type pages when explaining the break"
+          - factor: Documentation use — references the graph break documentation website or GB type pages when explaining the break
             weight: 0.1
+  - name: ariatextmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace AriaTextModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("AriaTextModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: autoformermodel-fake-tensor-error
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace AutoformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("AutoformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: bambamodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BambaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("BambaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: bartmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BartModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("BartModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: bigbirdpegasusmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BigBirdPegasusModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("BigBirdPegasusModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: blenderbotmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BlenderbotModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("BlenderbotModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: blenderbotsmallmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace BlenderbotSmallModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("BlenderbotSmallModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: dfinemodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace DFineModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("DFineModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: data2vecaudiomodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Data2VecAudioModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Data2VecAudioModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: dbrxmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace DbrxModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("DbrxModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: deformabledetrmodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace DeformableDetrModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("DeformableDetrModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: encodecmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace EncodecModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("EncodecModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: fsmtmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace FSMTModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("FSMTModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: falconh1model-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace FalconH1Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("FalconH1Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: falconmambamodel-forbidden-callable
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace FalconMambaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("FalconMambaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: fastspeech2conformermodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace FastSpeech2ConformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("FastSpeech2ConformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: florence2model-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Florence2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Florence2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: glm4vmoevisionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Glm4vMoeVisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Glm4vMoeVisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: glm4vvisionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Glm4vVisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Glm4vVisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: glmimagevisionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace GlmImageVisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("GlmImageVisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: glmocrvisionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace GlmOcrVisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("GlmOcrVisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: gotocr2model-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace GotOcr2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("GotOcr2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: granitemoehybridmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace GraniteMoeHybridModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("GraniteMoeHybridModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: groundingdinomodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace GroundingDinoModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("GroundingDinoModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: hubertmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace HubertModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("HubertModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: informermodel-non-tensor-return
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace InformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("InformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: internvlmodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace InternVLModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("InternVLModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: jambamodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace JambaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("JambaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: ledmodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace LEDModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("LEDModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: longt5model-observed-exception
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace LongT5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("LongT5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: longcatflashmodel-fake-tensor-error
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace LongcatFlashModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("LongcatFlashModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: longformermodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace LongformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("LongformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: lwdetrmodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace LwDetrModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("LwDetrModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: m2m100model-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace M2M100Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("M2M100Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mbartmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MBartModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MBartModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mmgroundingdinomodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MMGroundingDinoModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MMGroundingDinoModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mt5model-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MT5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MT5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mambamodel-forbidden-callable
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MambaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MambaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: marianmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MarianModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MarianModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mimimodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MimiModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MimiModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: moonshinemodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MoonshineModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MoonshineModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: moonshinestreamingmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MoonshineStreamingModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MoonshineStreamingModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mramodel-unsupported-requires-grad
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MraModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MraModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: mvpmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace MvpModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("MvpModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: nemotronhmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace NemotronHModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("NemotronHModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: nllbmoemodel-non-tensor-return
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace NllbMoeModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("NllbMoeModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: olmohybridmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace OlmoHybridModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("OlmoHybridModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: plbartmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PLBartModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PLBartModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: ppdoclayoutv2model-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PPDocLayoutV2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PPDocLayoutV2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: ppdoclayoutv3model-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PPDocLayoutV3Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PPDocLayoutV3Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: paddleocrvisionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PaddleOCRVisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PaddleOCRVisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: paligemmamodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PaliGemmaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PaliGemmaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: peaudiomodel-non-tensor-return
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PeAudioModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PeAudioModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: pegasusmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PegasusModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PegasusModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: pegasusxmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace PegasusXModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("PegasusXModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: qwen3nextmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Qwen3NextModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Qwen3NextModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: qwen3-5model-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Qwen3_5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Qwen3_5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: qwen3-5moemodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Qwen3_5MoeModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Qwen3_5MoeModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: qwen3-5moetextmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Qwen3_5MoeTextModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Qwen3_5MoeTextModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: qwen3-5textmodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Qwen3_5TextModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Qwen3_5TextModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: rtdetrmodel-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace RTDetrModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("RTDetrModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: rtdetrv2model-proxy-conversion-failure
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace RTDetrV2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("RTDetrV2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: recurrentgemmamodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace RecurrentGemmaModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("RecurrentGemmaModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: reformermodel-data-dependent-branching
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace ReformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("ReformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: rwkvmodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace RwkvModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("RwkvModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: sewmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SEWModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SEWModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: seamlessm4tmodel-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SeamlessM4TModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SeamlessM4TModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: seamlessm4tv2model-logging-logger
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SeamlessM4Tv2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SeamlessM4Tv2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: siglip2model-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Siglip2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Siglip2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: siglip2visionmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Siglip2VisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Siglip2VisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: speech2textmodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Speech2TextModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Speech2TextModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: speechencoderdecodermodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SpeechEncoderDecoderModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SpeechEncoderDecoderModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: speecht5model-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SpeechT5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SpeechT5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: switchtransformersmodel-observed-exception
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace SwitchTransformersModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("SwitchTransformersModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: t5model-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace T5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("T5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: timeseriestransformermodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace TimeSeriesTransformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("TimeSeriesTransformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: umt5model-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace UMT5Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("UMT5Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: udopmodel-observed-exception
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace UdopModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("UdopModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: unispeechmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace UniSpeechModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("UniSpeechModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: unispeechsatmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace UniSpeechSatModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("UniSpeechSatModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: videollama3visionmodel-dynamic-shape-operator
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace VideoLlama3VisionModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("VideoLlama3VisionModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: viltmodel-data-dependent-guard
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace ViltModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("ViltModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: vitsmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace VitsModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("VitsModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: wav2vec2bertmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Wav2Vec2BertModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Wav2Vec2BertModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: wav2vec2conformermodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Wav2Vec2ConformerModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Wav2Vec2ConformerModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: wav2vec2model-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace Wav2Vec2Model compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("Wav2Vec2Model", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: wavlmmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace WavLMModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("WavLMModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: whispermodel-copy-deepcopy
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace WhisperModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("WhisperModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
+  - name: xcodecmodel-skipped-function-call
+    description: Tests that the agent detects, diagnoses, and fixes graph breaks in a HuggingFace XcodecModel compiled with torch.compile.
+    user_message: |
+      /pt2:debug-graph-breaks
+      I want to compile the following model with torch.compile, but it's hitting graph breaks.
+      Please detect the graph breaks, diagnose them, and write a fixed version of the script
+      that compiles successfully with fullgraph=True or has as few graph breaks as possible.
+
+      ```python
+      import torch
+      from transformers import AutoModel
+
+      model = AutoModel.from_pretrained("XcodecModel", trust_remote_code=True)
+      model.eval()
+
+      compiled_model = torch.compile(model, backend="eager", fullgraph=True)
+      ```
+
+      The graph break documentation website is at https://meta-pytorch.org/compile-graph-break-site/.
+      When you encounter a specific graph break (e.g., GB0179), fetch the corresponding page
+      (e.g., https://meta-pytorch.org/compile-graph-break-site/gb/gb0179.html) for detailed context, examples, and fix suggestions.
+
+      To find the transformers library source code, run:
+        python3 -c "import transformers, os; print(os.path.dirname(transformers.__file__))"
+      You can then read source files from that directory to inspect the code causing graph breaks.
+
+      When fixing graph breaks that originate in the transformers library, create a subclass
+      of the model that overrides the problematic method(s) with compile-compatible
+      implementations.
+
+      Fix the graph breaks and save the fixed script as `fixed_model.py` in the current
+      working directory. The script must be self-contained and runnable with
+      `python3 fixed_model.py`.
+    tags:
+      - smoke
+      - transformers
+      - fullgraph
+    deterministic_checks:
+      - type: skill_invoked
+        skill: debug-graph-breaks
+    llm_judge:
+      rubric:
+        critical_requirements: *id001
+        quality_factors: *id002
