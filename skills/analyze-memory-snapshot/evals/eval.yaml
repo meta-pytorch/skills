@@ -32,7 +32,9 @@ test_cases:
           - "Must mention activation.py or activations as another major memory consumer"
           - "Must distinguish live allocated memory from inactive cached/reserved memory"
           - "Must discuss deallocation timing using free_requested/free_completed or pending frees"
-          - "Must call out a plausible leak or retained-tensor pattern from callback allocations repeated over five steps"
+          - >
+            Must call out a plausible leak or retained-tensor pattern from callback allocations
+            repeated over five steps
         quality_factors:
           - factor: "Quantifies memory usage with sizes or relative shares"
             weight: 0.35
