@@ -72,17 +72,39 @@ def judge(*, model: str, payload: dict[str, Any]) -> dict[str, Any]:
             f"Claude judge failed (exit {completed.returncode}): "
             f"{completed.stderr.strip() or completed.stdout.strip()}"
         )
-    output = completed.stdout.strip()
-    if not output:
+    raw_output = completed.stdout.strip()
+    if not raw_output:
         raise RuntimeError(
             f"Claude judge returned empty output. stderr: {completed.stderr.strip()}"
         )
-    # Handle potential markdown fencing
-    if output.startswith("```"):
-        lines = output.split("\n")
-        # Remove first and last lines (```json and ```)
-        output = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-    return json.loads(output)
+    output = _extract_json(raw_output)
+    if not output:
+        raise RuntimeError(
+            f"Claude judge returned no extractable JSON.\n"
+            f"Raw output ({len(raw_output)} chars): {raw_output[:1000]}"
+        )
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            f"Claude judge returned invalid JSON: {e}\n"
+            f"Raw output ({len(raw_output)} chars): {raw_output[:1000]}"
+        ) from e
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON from text that may contain markdown fences or surrounding prose."""
+    import re
+
+    # Try to find JSON inside markdown fences anywhere in the text
+    fenced = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+    if fenced:
+        return fenced.group(1).strip()
+    # Fall back to finding the first top-level JSON object
+    brace = text.find("{")
+    if brace != -1:
+        return text[brace:]
+    return text
 
 
 if __name__ == "__main__":

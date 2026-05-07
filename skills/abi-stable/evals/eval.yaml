@@ -1,0 +1,80 @@
+eval_version: "1"
+skill_name: "abi-stable"
+skill_path: "skills/abi-stable/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "basic_tensor_migration"
+    description: "Skill migrates a simple C++ extension to the stable ABI"
+    user_message: >-
+      Migrate the C++ extension at extension.cpp to use the PyTorch
+      stable ABI and save the result as migrated.cpp
+    fixture: "fixtures/basic_tensor_migration"
+    tags:
+      - "smoke"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "abi-stable"
+      - type: "file_exists"
+        path: "migrated.cpp"
+      - type: "file_contains"
+        path: "migrated.cpp"
+        value: "STD_TORCH_CHECK"
+      - type: "file_contains"
+        path: "migrated.cpp"
+        value: "STABLE_TORCH_LIBRARY_IMPL"
+      - type: "file_contains"
+        path: "migrated.cpp"
+        value: "TORCH_BOX"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Replaces torch/extension.h and ATen/ATen.h includes with stable ABI headers (torch/csrc/stable/)"
+          - "Replaces at::Tensor with torch::stable::Tensor"
+          - "Replaces TORCH_CHECK with STD_TORCH_CHECK without changing the check arguments"
+        quality_factors:
+          - factor: "Correctness — the migrated code uses stable ABI APIs correctly and would compile"
+            weight: 0.5
+          - factor: "Completeness — all unstable APIs are replaced, no old headers remain"
+            weight: 0.5
+
+  - name: "cuda_extension_migration"
+    description: "Skill migrates a CUDA extension with CUDAGuard and stream access to the stable ABI"
+    user_message: >-
+      Migrate the CUDA extension at extension.cu to use the PyTorch
+      stable ABI and save the result as migrated.cu
+    fixture: "fixtures/cuda_extension_migration"
+    tags:
+      - "smoke"
+      - "cuda"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "abi-stable"
+      - type: "file_exists"
+        path: "migrated.cu"
+      - type: "file_contains"
+        path: "migrated.cu"
+        value: "STABLE_TORCH_LIBRARY_IMPL"
+      - type: "file_contains"
+        path: "migrated.cu"
+        value: "TORCH_BOX"
+      - type: "file_contains"
+        path: "migrated.cu"
+        value: "aoti_torch_get_current_cuda_stream"
+      - type: "file_contains"
+        path: "migrated.cu"
+        value: "torch::stable::accelerator::DeviceGuard"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Replaces CUDAGuard with torch::stable::accelerator::DeviceGuard using tensor.get_device_index()"
+          - "Replaces at::cuda::getCurrentCUDAStream with aoti_torch_get_current_cuda_stream via shim.h"
+          - "Does not use new_empty_strided (which does not exist)"
+        quality_factors:
+          - factor: "Correctness — CUDA stream and device guard usage follows stable ABI patterns"
+            weight: 0.5
+          - factor: "Completeness — all old ATen/c10 CUDA headers and APIs are replaced"
+            weight: 0.5
