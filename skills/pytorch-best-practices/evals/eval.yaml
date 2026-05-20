@@ -1,0 +1,22 @@
+eval_version: "1"
+skill_name: "pytorch-best-practices"
+skill_path: "skills/pytorch-best-practices/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "generic_training_loop_advice"
+    description: "The skill gives broad optimization advice for a PyTorch training loop."
+    user_message: |
+      I have a PyTorch training loop and want to make it faster and more production ready.
+      What changes should I consider?
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pytorch-best-practices"
+      - type: "output_contains_ci"
+        value: "torch.compile"
+      - type: "output_contains_ci"
+        value: "mixed precision"
+      - type: "output_contains_ci"
+        value: "profiler"
