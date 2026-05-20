@@ -8,9 +8,10 @@ models:
 test_cases:
   - name: "generic_training_loop_advice"
     description: "The skill gives broad optimization advice for a PyTorch training loop."
+    fixture: "fixtures/generic_training_loop_advice"
     user_message: |
-      I have a PyTorch training loop and want to make it faster and more production ready.
-      What changes should I consider?
+      I have a PyTorch training loop in train.py and want to make it faster and more
+      production ready. Review the code and tell me what changes I should consider.
     deterministic_checks:
       - type: "skill_invoked"
         skill: "pytorch-best-practices"
