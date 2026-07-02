@@ -1,0 +1,196 @@
+eval_version: "1"
+skill_name: "pybind-to-torch-library"
+skill_path: "skills/pybind-to-torch-library/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "basic_pybind_conversion"
+    description: >-
+      torchao-style quantize extension: two pybind-exported functions (tuple
+      return; int/float/str scalars that must become int64_t/double in C++)
+      converted to TORCH_LIBRARY + TORCH_LIBRARY_IMPL, pybind module removed,
+      loader wired into __init__.py, wrapper switched to torch.ops.
+    user_message: >-
+      Convert this extension's pybind11 bindings (csrc/quantize.cpp, exposed as
+      mylib._C) to TORCH_LIBRARY / TORCH_LIBRARY_IMPL registrations, and update
+      the Python package accordingly. Use `mylib` as the library name and CPU as
+      the dispatch key. Edit files in place. Assume: build torch = installed
+      version, target torch = 2.12, one-shot cadence, do not enable
+      Py_LIMITED_API unless asked; proceed without asking questions.
+    fixture: "fixtures/basic_pybind_conversion"
+    tags:
+      - "smoke"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pybind-to-torch-library"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/quantize.cpp"
+        value: "TORCH_LIBRARY"
+      - type: "file_contains"
+        path: "mylib/__init__.py"
+        value: "torch.ops.load_library"
+    checker: "checkers:check_basic_conversion"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Removed the PYBIND11_MODULE block instead of keeping both registration styles"
+          - "Did not rename or change the signature of the public wrapper functions in mylib/_custom_ops.py"
+        quality_factors:
+          - factor: "Minimality — C++ signatures changed only where the dispatcher requires it"
+            weight: 0.5
+          - factor: "Loader correctness — __init__.py globs _C*.so and asserts a single match"
+            weight: 0.5
+
+  - name: "mutable_out_args"
+    description: >-
+      vllm-style in-place kernel: rotary_embedding mutates query and key. The
+      schema must carry distinct Tensor(a!)/Tensor(b!) annotations and return
+      (), not the mutated tensors.
+    user_message: >-
+      Convert this extension's pybind11 bindings (csrc/pos_encoding.cpp, exposed
+      as vkernels._C) to TORCH_LIBRARY / TORCH_LIBRARY_IMPL registrations, and
+      update the Python package accordingly. Use `vkernels` as the library name
+      and CPU as the dispatch key. Note: rotary_embedding writes into query and
+      key in place. Edit files in place. Assume: build torch = installed
+      version, target torch = 2.12, one-shot cadence, do not enable
+      Py_LIMITED_API unless asked; proceed without asking questions.
+    fixture: "fixtures/mutable_out_args"
+    tags:
+      - "cpp"
+      - "correctness"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pybind-to-torch-library"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/pos_encoding.cpp"
+        value: "(a!)"
+    checker: "checkers:check_mutable_schema"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Schema does not return the mutated tensors (returns nothing / unit)"
+          - "Read-only arguments (positions, cos_sin_cache) are NOT annotated as mutable"
+        quality_factors:
+          - factor: "Wrapper in vkernels/_custom_ops.py keeps its name, signature, and in-place semantics"
+            weight: 0.6
+          - factor: "Explanation notes why mutated tensors are not returned"
+            weight: 0.4
+
+  - name: "direct_public_C_usage_stop"
+    description: >-
+      Adversarial STOP case: public code (mylib/api.py, examples/train.py)
+      imports fused_op straight from mylib._C. The skill says to stop and ask
+      before breaking that import path; the user message does not grant
+      permission.
+    user_message: >-
+      Convert this extension's pybind11 bindings (csrc/fused.cpp, exposed as
+      mylib._C) to TORCH_LIBRARY / TORCH_LIBRARY_IMPL registrations. Use `mylib`
+      as the library name and CPU as the dispatch key. Assume: build torch =
+      installed version, target torch = 2.12, one-shot cadence, do not enable
+      Py_LIMITED_API unless asked.
+    fixture: "fixtures/direct_public_C_usage_stop"
+    tags:
+      - "adversarial"
+      - "guardrail"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pybind-to-torch-library"
+    checker: "checkers:check_stop_guardrail"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            Recognized that public user-facing code (mylib/api.py and/or
+            examples/train.py) imports fused_op directly from mylib._C, and
+            asked the user / flagged this as a blocking decision rather than
+            silently breaking the import path
+        quality_factors:
+          - factor: >-
+              Clearly presents the user's options (introduce a wrapper vs keep a
+              compatibility shim re-exporting from torch.ops)
+            weight: 0.6
+          - factor: "Any work it did do (e.g. schema drafting) is correct and reversible"
+            weight: 0.4
+
+  - name: "fragment_registration"
+    description: >-
+      Two .cpp files (norm.cpp, activation.cpp) plus a bindings.cpp must
+      register into one `fastops` library. Trap: duplicating TORCH_LIBRARY
+      (fastops) across files is a runtime error; correct answers use one
+      TORCH_LIBRARY plus TORCH_LIBRARY_FRAGMENT or one consolidated block.
+    user_message: >-
+      Convert this extension's pybind11 bindings (csrc/bindings.cpp, exposing
+      kernels from csrc/norm.cpp and csrc/activation.cpp as fastops._C) to
+      TORCH_LIBRARY / TORCH_LIBRARY_IMPL registrations. Use `fastops` as the
+      library name and CPU as the dispatch key. Put each op's registration next
+      to its kernel in norm.cpp and activation.cpp, and remove bindings.cpp or
+      leave it empty of registrations. Update the Python package accordingly.
+      Edit files in place. Assume: build torch = installed version, target
+      torch = 2.12, one-shot cadence, do not enable Py_LIMITED_API unless
+      asked; proceed without asking questions.
+    fixture: "fixtures/fragment_registration"
+    tags:
+      - "cpp"
+      - "trap"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pybind-to-torch-library"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+    checker: "checkers:check_single_torch_library"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Does not register TORCH_LIBRARY(fastops, ...) more than once in the same shared library"
+        quality_factors:
+          - factor: "Uses TORCH_LIBRARY_FRAGMENT (or a single consolidated block) idiomatically"
+            weight: 0.6
+          - factor: "Wrapper functions in fastops/_custom_ops.py keep their names and signatures"
+            weight: 0.4
+
+  - name: "end_to_end_python_smoke"
+    description: >-
+      Smallest end-to-end case: after migration, a fixture-shipped smoke script
+      extracts the schema strings from csrc/scale.cpp, defines them via
+      torch.library with a pure-Python CPU impl standing in for the compiled
+      kernel, then imports the package and calls the public wrapper, which must
+      resolve through torch.ops.tinyops.weighted_sum.
+    user_message: >-
+      Convert this extension's pybind11 bindings (csrc/scale.cpp, exposed as
+      tinyops._C) to TORCH_LIBRARY / TORCH_LIBRARY_IMPL registrations, and
+      update the Python package accordingly. Use `tinyops` as the library name
+      and CPU as the dispatch key. Edit files in place; keep tinyops/_reference.py
+      as is. Assume: build torch = installed version, target torch = 2.12,
+      one-shot cadence, do not enable Py_LIMITED_API unless asked; proceed
+      without asking questions.
+    fixture: "fixtures/end_to_end_python_smoke"
+    tags:
+      - "smoke"
+      - "e2e"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pybind-to-torch-library"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "command_exit_code"
+        command: "python3 checks/smoke.py"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The schema for weighted_sum declares `float alpha` (schema float =
+            C++ double) and the C++ parameter becomes double
+        quality_factors:
+          - factor: >-
+              Wrapper tinyops/_custom_ops.py routes through
+              torch.ops.tinyops.weighted_sum unchanged in name/signature
+            weight: 0.5
+          - factor: "__init__.py loads the library via a _C*.so glob and drops the side-effect _C import"
+            weight: 0.5
