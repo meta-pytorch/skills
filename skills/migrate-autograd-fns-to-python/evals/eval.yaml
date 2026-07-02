@@ -1,0 +1,192 @@
+---
+eval_version: "1"
+skill_name: "migrate-autograd-fns-to-python"
+skill_path: "skills/migrate-autograd-fns-to-python/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "basic_autograd_migration"
+    description: >-
+      Migrates a torch::autograd::Function for mymuladd (save a+b, grads
+      grad*b / grad*a / none) to torch.library.register_autograd, deletes
+      the C++ impl, and wires the registration into the package import.
+    user_message: >-
+      This PyTorch extension project (files: setup.py, csrc/muladd.cpp,
+      csrc/autograd.cpp, gradext/__init__.py, gradext/_kernels.py) is being
+      migrated to the stable ABI. The file csrc/autograd.cpp has the
+      autograd-fns concern: it registers a C++ torch::autograd::Function
+      for gradext::mymuladd under the Autograd dispatch key. Migrate that
+      autograd implementation to Python with torch.library.register_autograd
+      and remove the C++ autograd translation unit from the build. Note the
+      compiled kernels are simulated in gradext/_kernels.py (leave its
+      schemas and kernel math untouched). The target PyTorch version is
+      2.12. Verify with python3 checks/grad_smoke.py. Proceed without
+      asking questions.
+    fixture: "fixtures/basic_autograd_migration"
+    tags:
+      - "smoke"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-autograd-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/grad_smoke.py"
+    checker: "checkers:check_cpp_autograd_removed"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Did not change the op schema or the kernel math in gradext/_kernels.py"
+          - >-
+            The Python backward returns three values (grad_a, grad_b,
+            None) matching the C++ {grad*b, grad*a, at::Tensor()}
+        quality_factors:
+          - factor: >-
+              Fidelity - setup_context saves the same tensors the C++
+              forward saved (a and b), and code reads cleanly with
+              schema-matching names
+            weight: 0.5
+          - factor: >-
+              Cleanliness - C++ autograd file deleted or fully emptied,
+              setup.py updated minimally, no leftover dead code
+            weight: 0.5
+
+  - name: "needs_input_grad_and_nondiff_args"
+    description: >-
+      Migrates a C++ backward that consults ctx->needs_input_grad and has a
+      non-differentiable int argument; asymmetric grads (grad*cos(a) vs
+      grad*2*b) make positional swaps numerically detectable.
+    user_message: >-
+      This PyTorch extension project (files: setup.py, csrc/scalemix.cpp,
+      csrc/autograd.cpp, gradext/__init__.py, gradext/_kernels.py) is being
+      migrated to the stable ABI. csrc/autograd.cpp has the autograd-fns
+      concern: a C++ torch::autograd::Function for gradext::scalemix
+      registered under the Autograd key, whose backward consults
+      ctx->needs_input_grad and skips work accordingly; the int shift
+      argument is non-differentiable. Migrate the autograd implementation
+      to Python with torch.library.register_autograd, preserving the
+      needs_input_grad behavior, and remove the C++ autograd translation
+      unit from the build. The compiled kernels are simulated in
+      gradext/_kernels.py (leave its schemas and kernel math untouched).
+      The target PyTorch version is 2.12. Verify with
+      python3 checks/grad_smoke.py. Proceed without asking questions.
+    fixture: "fixtures/needs_input_grad_and_nondiff_args"
+    tags:
+      - "needs-input-grad"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-autograd-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/grad_smoke.py"
+    checker: "checkers:check_cpp_autograd_removed"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Did not change the op schema or the kernel math in gradext/_kernels.py"
+          - "The Python backward returns grads in schema order (a, b, shift) with None for the int shift argument"
+          - "The Python backward checks ctx.needs_input_grad before computing each gradient, mirroring the C++"
+        quality_factors:
+          - factor: >-
+              Fidelity - gradient math matches the C++ exactly
+              (grad*cos(a) for a, grad*2*b for b), unpacked with
+              schema-matching names
+            weight: 0.6
+          - factor: >-
+              Cleanliness - C++ autograd file removed from the build, no
+              leftover dead code
+            weight: 0.4
+
+  - name: "backward_calls_custom_op"
+    description: >-
+      The C++ backward computes grads via another registered custom op
+      (gradext::mymul_backward_kernel) through the dispatcher; the Python
+      backward must call torch.ops.gradext.mymul_backward_kernel instead of
+      reimplementing the math (verified with a TorchDispatchMode trace).
+    user_message: >-
+      This PyTorch extension project (files: setup.py, csrc/mymul.cpp,
+      csrc/autograd.cpp, gradext/__init__.py, gradext/_kernels.py) is being
+      migrated to the stable ABI. csrc/autograd.cpp has the autograd-fns
+      concern: a C++ torch::autograd::Function for gradext::mymul
+      registered under the Autograd key, whose backward computes gradients
+      by calling the extension's fused kernel op
+      gradext::mymul_backward_kernel through the dispatcher. Migrate the
+      autograd implementation to Python with
+      torch.library.register_autograd and remove the C++ autograd
+      translation unit from the build. The compiled kernels (including the
+      fused backward kernel) are simulated in gradext/_kernels.py (leave
+      its schemas and kernel math untouched). The target PyTorch version is
+      2.12. Verify with python3 checks/grad_smoke.py. Proceed without
+      asking questions.
+    fixture: "fixtures/backward_calls_custom_op"
+    tags:
+      - "backward-custom-op"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-autograd-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/grad_smoke.py"
+    checker: "checkers:check_cpp_autograd_removed"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Did not change the op schema or the kernel math in gradext/_kernels.py"
+          - >-
+            The Python backward calls
+            torch.ops.gradext.mymul_backward_kernel for both gradients
+            instead of reimplementing the multiplication in Python
+        quality_factors:
+          - factor: >-
+              Fidelity - setup_context saves a and b as the C++ forward
+              did; backward returns two grads in schema order
+            weight: 0.6
+          - factor: >-
+              Cleanliness - C++ autograd file removed from the build, the
+              CPU kernels in csrc/mymul.cpp are untouched
+            weight: 0.4
+
+  - name: "unconditional_save_mirroring"
+    description: >-
+      The C++ forward saves the output tensor too (save_for_backward
+      {a, b, output}) for a tanh-style gradient; the Python setup_context
+      must mirror the full save set using its output parameter, checked via
+      grad_fn.saved_tensors.
+    user_message: >-
+      This PyTorch extension project (files: setup.py, csrc/tanhmul.cpp,
+      csrc/autograd.cpp, gradext/__init__.py, gradext/_kernels.py) is being
+      migrated to the stable ABI. csrc/autograd.cpp has the autograd-fns
+      concern: a C++ torch::autograd::Function for gradext::mytanhmul
+      registered under the Autograd key. Its forward saves the inputs AND
+      the forward output (the backward reuses the output for the tanh
+      gradient instead of recomputing it). Migrate the autograd
+      implementation to Python with torch.library.register_autograd,
+      mirroring exactly what the C++ version saved for backward, and remove
+      the C++ autograd translation unit from the build. The compiled
+      kernels are simulated in gradext/_kernels.py (leave its schemas and
+      kernel math untouched). The target PyTorch version is 2.12. Verify
+      with python3 checks/grad_smoke.py. Proceed without asking questions.
+    fixture: "fixtures/unconditional_save_mirroring"
+    tags:
+      - "save-mirroring"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-autograd-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/grad_smoke.py"
+    checker: "checkers:check_cpp_autograd_removed"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Did not change the op schema or the kernel math in gradext/_kernels.py"
+          - >-
+            setup_context uses its output parameter and saves a, b, and
+            output - the same set the C++ forward saved
+          - "The Python backward reuses the saved output (grad * (1 - output^2)) rather than recomputing tanh(a*b)"
+        quality_factors:
+          - factor: >-
+              Fidelity - gradient math and save set match the C++ exactly;
+              backward returns two grads in schema order
+            weight: 0.6
+          - factor: >-
+              Cleanliness - C++ autograd file removed from the build, no
+              leftover dead code
+            weight: 0.4
