@@ -1,0 +1,129 @@
+eval_version: "1"
+skill_name: "migrate-meta-fns-to-python"
+skill_path: "skills/migrate-meta-fns-to-python/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "basic_meta_migration"
+    description: >-
+      Single-op package: migrate the C++ Meta impl (with TORCH_CHECKs) to a
+      Python register_fake, delete meta.cpp, and drop it from setup.py. The
+      smoke test also asserts the TORCH_CHECKs survived as torch._check
+      (mismatched meta inputs must raise RuntimeError).
+    user_message: >-
+      Migrate the C++ Meta-dispatch implementations of this PyTorch extension
+      to Python. The files with the meta-fns concern are: csrc/meta.cpp.
+      The op namespace is extpkg. Note that extpkg/_kernels.py simulates the
+      compiled extension for local development — leave it alone; it stands in
+      for the C++ device kernels. Target PyTorch version is 2.12. Move the
+      Meta logic to a Python fake registered at package import time, delete
+      the C++ Meta impl, and remove csrc/meta.cpp from the build. Do not ask
+      me any questions; proceed with these assumptions.
+    fixture: "fixtures/basic_meta_migration"
+    tags:
+      - "smoke"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-meta-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/meta_smoke.py"
+    checker: "checkers:check_basic_migration"
+
+  - name: "shape_arithmetic_symint"
+    description: >-
+      Two ops with nontrivial output-shape arithmetic (pooling-style
+      (L + 2*pad - k)/stride + 1 and a concat producing {M, N*2+1}). The
+      smoke test compiles with fullgraph=True, dynamic=True and runs at two
+      sizes under error_on_recompile, so a fake that int()-casts SymInt or
+      hardcodes sizes fails.
+    user_message: >-
+      Migrate the C++ Meta-dispatch implementations of this PyTorch extension
+      to Python. The files with the meta-fns concern are: csrc/meta.cpp.
+      The op namespace is windowops (ops: window_avg, pack_pair). Note that
+      windowops/_kernels.py simulates the compiled extension for local
+      development — leave it alone; it stands in for the C++ device kernels.
+      Target PyTorch version is 2.12. The fakes must preserve dynamic shapes
+      (torch.compile with dynamic=True must not recompile across sizes).
+      Delete the C++ Meta impl and remove csrc/meta.cpp from the build. Do
+      not ask me any questions; proceed with these assumptions.
+    fixture: "fixtures/shape_arithmetic_symint"
+    tags:
+      - "dynamic-shapes"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-meta-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/dynamic_smoke.py"
+    checker: "checkers:check_symint_migration"
+
+  - name: "fake_must_not_call_real_kernel"
+    description: >-
+      Adversarial: the simulated device kernel bumps a launch counter on
+      every real execution. The smoke test calls the op on meta tensors and
+      under FakeTensorMode and asserts the counter did not move, so a fake
+      that delegates to the real kernel (critical rule 1) or allocates real
+      data via it (rule 2) fails.
+    user_message: >-
+      Migrate the C++ Meta-dispatch implementations of this PyTorch extension
+      to Python. The files with the meta-fns concern are: csrc/meta.cpp.
+      The op namespace is statops (op: row_l2norm). Note that
+      statops/_kernels.py simulates the compiled extension for local
+      development, including its kernel-launch telemetry — leave it alone; it
+      stands in for the C++ device kernels. Target PyTorch version is 2.12.
+      Move the Meta logic to a Python fake registered at package import time,
+      delete the C++ Meta impl, and remove csrc/meta.cpp from the build. Do
+      not ask me any questions; proceed with these assumptions.
+    fixture: "fixtures/fake_must_not_call_real_kernel"
+    tags:
+      - "adversarial"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-meta-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/purity_smoke.py"
+    checker: "checkers:check_purity_migration"
+
+  - name: "existing_fake_already_registered"
+    description: >-
+      Edge case: colwise_scale already has a Python register_fake AND a
+      redundant C++ Meta impl; tile_rows has only a C++ Meta impl. The agent
+      must migrate tile_rows and delete the redundant C++ impl WITHOUT adding
+      a duplicate Python registration for colwise_scale (critical rule 4:
+      register exactly once; the checker counts registrations per op).
+    user_message: >-
+      Migrate the C++ Meta-dispatch implementations of this PyTorch extension
+      to Python. The files with the meta-fns concern are: csrc/meta.cpp.
+      The op namespace is gridops (ops: colwise_scale, tile_rows). Note that
+      gridops/_kernels.py simulates the compiled extension for local
+      development — leave it alone; it stands in for the C++ device kernels.
+      Target PyTorch version is 2.12. Make sure every op works on the meta
+      device via Python fakes, delete the C++ Meta impls, and remove
+      csrc/meta.cpp from the build. Do not ask me any questions; proceed with
+      these assumptions.
+    fixture: "fixtures/existing_fake_already_registered"
+    tags:
+      - "edge-case"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-meta-fns-to-python"
+      - type: "command_exit_code"
+        command: "python3 checks/meta_smoke.py"
+    checker: "checkers:check_existing_fake_migration"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            Did not create a second Python register_fake registration for
+            gridops::colwise_scale (the pre-existing one in gridops/_meta.py
+            is kept or moved, not duplicated).
+        quality_factors:
+          - factor: >-
+              Recognized that colwise_scale already had a Python fake and
+              only the redundant C++ Meta impl needed deleting.
+            weight: 0.6
+          - factor: >-
+              The new tile_rows fake mirrors the C++ Meta logic including
+              TORCH_CHECK -> torch._check translation.
+            weight: 0.4
