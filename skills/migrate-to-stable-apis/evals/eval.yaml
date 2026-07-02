@@ -1,0 +1,283 @@
+eval_version: "1"
+skill_name: "migrate-to-stable-apis"
+skill_path: "skills/migrate-to-stable-apis/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "fa3_style_attention_cpp"
+    description: >-
+      FlashAttention-style CPU attention op with an optional out tensor:
+      the migrated file must compile under TORCH_TARGET_VERSION with no
+      legacy APIs and unchanged signatures/behavior.
+    user_message: >-
+      Migrate my C++ extension in csrc/attention.cpp to the PyTorch stable ABI
+      using the migrate-to-stable-apis skill. Assume: build torch = the
+      installed version, target torch = 2.12 (hex 0x020c000000000000),
+      one-shot cadence (no parallel stable target was scaffolded), and do NOT
+      enable Py_LIMITED_API. Rewrite the file in place (keep the same path
+      csrc/attention.cpp). There is no setup.py in this repo slice, so skip
+      build wiring. Proceed without asking me any questions.
+    fixture: "fixtures/fa3_style_attention_cpp"
+    tags:
+      - "smoke"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/attention.cpp"
+        value: "TORCH_BOX"
+      - type: "file_contains"
+        path: "csrc/attention.cpp"
+        value: "STABLE_TORCH_LIBRARY"
+    checker: "checkers:check_fa3_attention"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The attention_fwd signature is preserved apart from the required
+            type swaps (at::Tensor -> torch::stable::Tensor); the
+            std::optional out parameter, argument order, const-ness, and
+            double softmax_scale are unchanged.
+          - >-
+            The numerical logic (score computation, softmax, output loop) is
+            unchanged; no algorithmic rewrites.
+          - >-
+            Every TORCH_CHECK became STD_TORCH_CHECK with identical condition
+            and message arguments.
+        quality_factors:
+          - factor: >-
+              Minimal diff: no gratuitous renames, no reformatting of
+              untouched code, comments preserved.
+            weight: 0.5
+          - factor: >-
+              Includes are the correct minimal stable set (torch/csrc/stable,
+              torch/headeronly) with no leftovers.
+            weight: 0.5
+
+  - name: "cuda_guard_and_stream"
+    description: >-
+      vLLM-style in-place CUDA kernel using CUDAGuard, getCurrentCUDAStream
+      and C10_CUDA_KERNEL_LAUNCH_CHECK; must migrate to DeviceGuard +
+      aoti_torch_get_current_cuda_stream with tensor-derived device index.
+    user_message: >-
+      Migrate my CUDA extension file csrc/rope_kernel.cu to the PyTorch stable
+      ABI using the migrate-to-stable-apis skill. Assume: build torch = the
+      installed version, target torch = 2.12 (hex 0x020c000000000000),
+      one-shot cadence, and do NOT enable Py_LIMITED_API. Rewrite the file in
+      place (keep the same path csrc/rope_kernel.cu). There is no setup.py in
+      this repo slice, so skip build wiring. Proceed without asking me any
+      questions.
+    fixture: "fixtures/cuda_guard_and_stream"
+    tags:
+      - "cuda"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/rope_kernel.cu"
+        value: "torch::stable::accelerator::DeviceGuard"
+      - type: "file_contains"
+        path: "csrc/rope_kernel.cu"
+        value: "aoti_torch_get_current_cuda_stream"
+      - type: "file_contains"
+        path: "csrc/rope_kernel.cu"
+        value: "TORCH_BOX"
+    checker: "checkers:check_cuda_stream_migration"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The __global__ kernel body is unchanged; only host-side APIs were
+            migrated.
+          - >-
+            The rotary_embedding signature and the Tensor(a!) mutating schema
+            string are preserved.
+        quality_factors:
+          - factor: >-
+              DeviceGuard stays RAII at function scope and is constructed from
+              tensor.get_device_index() without narrowing casts.
+            weight: 0.5
+          - factor: >-
+              Minimal diff: no gratuitous changes to launch configuration,
+              comments, or unrelated code.
+            weight: 0.5
+
+  - name: "strided_tensor_trap"
+    description: >-
+      Adversarial: file uses at::empty_strided to build a column-major
+      output. torch::stable::new_empty_strided does not exist; the correct
+      migration is new_empty with transposed dims + torch::stable::transpose.
+    user_message: >-
+      Migrate csrc/colmajor_scale.cpp to the PyTorch stable ABI using the
+      migrate-to-stable-apis skill. Assume: build torch = the installed
+      version, target torch = 2.12 (hex 0x020c000000000000), one-shot cadence,
+      and do NOT enable Py_LIMITED_API. Rewrite the file in place (keep the
+      same path). Preserve the column-major output layout exactly: callers
+      rely on shape {rows, cols} with strides {1, rows}. There is no setup.py
+      in this repo slice, so skip build wiring. Proceed without asking me any
+      questions.
+    fixture: "fixtures/strided_tensor_trap"
+    tags:
+      - "adversarial"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+    checker: "checkers:check_strided_trap"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The column-major result still has logical shape {rows, cols} with
+            strides {1, rows} (contiguous {cols, rows} buffer transposed with
+            dims 0 and 1), so the element-write indexing remains correct.
+        quality_factors:
+          - factor: >-
+              The scale-and-copy loop semantics are unchanged and the stride
+              variables now come from .stride(i).
+            weight: 1.0
+
+  - name: "namespace_preservation_trap"
+    description: >-
+      Adversarial: mid-migration project with a Python wrapper and a fake
+      registered on fastkernels::rmsnorm. The registration namespace must
+      stay exactly `fastkernels` (no _stable suffix) and the wrapper must
+      not be touched.
+    user_message: >-
+      This project is mid-migration to the PyTorch stable ABI; the Python
+      side (fastkernels/_ops.py, with a register_fake on
+      fastkernels::rmsnorm) is already done and must keep working as-is.
+      Using the migrate-to-stable-apis skill, migrate the C++ file
+      csrc/rmsnorm.cpp to the stable ABI. Assume: build torch = the installed
+      version, target torch = 2.12 (hex 0x020c000000000000), one-shot cadence,
+      and do NOT enable Py_LIMITED_API. Rewrite csrc/rmsnorm.cpp in place;
+      only that file needs changes. There is no setup.py in this repo slice,
+      so skip build wiring. Proceed without asking me any questions.
+    fixture: "fixtures/namespace_preservation_trap"
+    tags:
+      - "adversarial"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/rmsnorm.cpp"
+        value: "STABLE_TORCH_LIBRARY(fastkernels"
+    checker: "checkers:check_namespace_preserved"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The torch.ops namespace stays exactly `fastkernels`; nothing was
+            renamed with a _stable suffix anywhere.
+        quality_factors:
+          - factor: >-
+              The RMS-norm math and the schema string
+              "rmsnorm(Tensor input, Tensor weight, float eps) -> Tensor"
+              are byte-for-byte preserved.
+            weight: 1.0
+
+  - name: "one_shot_setup_py_wiring"
+    description: >-
+      One-shot mode over a small repo: migrate both sources and add the
+      TORCH_TARGET_VERSION build flag to the single existing ext_modules
+      entry (no parallel stable target, no Py_LIMITED_API).
+    user_message: >-
+      Migrate this whole extension (the tinyops project in the current
+      directory) to the PyTorch stable ABI using the migrate-to-stable-apis
+      skill, in one-shot mode: rewrite every C++ source under csrc/ in place
+      AND wire the stable build flag into the existing ext_modules entry in
+      setup.py. Assume: build torch = the installed version, target torch =
+      2.12 (hex 0x020c000000000000), and do NOT enable Py_LIMITED_API. Do not
+      add a second ext_modules entry and do not run the build (no toolchain
+      for pip here); just make the source and setup.py edits. Proceed without
+      asking me any questions.
+    fixture: "fixtures/one_shot_setup_py_wiring"
+    tags:
+      - "cpp"
+      - "build-wiring"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "setup.py"
+        value: "TORCH_TARGET_VERSION"
+      - type: "file_contains"
+        path: "csrc/muladd.cpp"
+        value: "TORCH_BOX"
+      - type: "file_contains"
+        path: "csrc/relu_op.cpp"
+        value: "TORCH_BOX"
+    checker: "checkers:check_setup_py_wiring"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            tinyops/__init__.py still calls torch.ops.tinyops.* unchanged (the
+            wrapper needed no edits).
+          - >-
+            The schema definitions (m.def for muladd and relu_out) stay in
+            muladd.cpp under STABLE_TORCH_LIBRARY(tinyops, ...), and
+            relu_op.cpp keeps only the STABLE_TORCH_LIBRARY_IMPL.
+        quality_factors:
+          - factor: >-
+              setup.py edit is minimal: existing flags (-O3, -std=c++17),
+              name, packages, and cmdclass untouched.
+            weight: 0.5
+          - factor: >-
+              Kernel loops and validation logic are behavior-identical after
+              migration.
+            weight: 0.5
+
+  - name: "torch_check_argument_preservation"
+    description: >-
+      Adversarial: TORCH_CHECKs with multi-argument stream-style messages
+      (commas, <<-free but comma-heavy). Only the macro name may change;
+      every condition and message argument must survive verbatim.
+    user_message: >-
+      Migrate csrc/validate.cpp to the PyTorch stable ABI using the
+      migrate-to-stable-apis skill. Assume: build torch = the installed
+      version, target torch = 2.12 (hex 0x020c000000000000), one-shot cadence,
+      and do NOT enable Py_LIMITED_API. Rewrite the file in place. Our test
+      suite asserts on the exact error message text of every check in this
+      file, so the checks' conditions and message arguments must not change
+      in any way — only what the migration strictly requires may change.
+      There is no setup.py in this repo slice, so skip build wiring. Proceed
+      without asking me any questions.
+    fixture: "fixtures/torch_check_argument_preservation"
+    tags:
+      - "adversarial"
+      - "cpp"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "migrate-to-stable-apis"
+      - type: "command_exit_code"
+        command: "bash checks/compile.sh"
+      - type: "file_contains"
+        path: "csrc/validate.cpp"
+        value: "STD_TORCH_CHECK"
+    checker: "checkers:check_torch_check_bodies"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            No check was dropped, merged, split, or reordered; the file still
+            has exactly four checks in the original order.
+        quality_factors:
+          - factor: >-
+              Minimal diff outside the required API swaps (includes, Tensor
+              type, data_ptr accessors, registration macros).
+            weight: 1.0
