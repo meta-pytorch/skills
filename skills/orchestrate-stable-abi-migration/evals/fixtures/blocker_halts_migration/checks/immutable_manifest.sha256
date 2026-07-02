@@ -1,0 +1,5 @@
+# sha256 manifest of files that must not change if migration is halted
+da253deb8684c67cb621d1f012a172dff00f91f49568a1d75f9a93aa19f2355d  csrc/scale.cpp
+e2b531e86953620188ac24ce0705dfead64d1aae10f2a560bfc42b1340d56190  setup.py
+df314e491492f9fc7d0491b20677d6ee808253cc550bff5a04aafcb87694dd37  build.sh
+fabd197ac261987ee2f7f06779b1f5db42306c8f93d3fcf7fdf8fa1222534c8d  test.sh

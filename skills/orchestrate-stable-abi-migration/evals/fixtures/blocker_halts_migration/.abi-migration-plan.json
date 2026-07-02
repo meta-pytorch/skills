@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-30T12:00:00Z",
+  "repo_root": ".",
+  "build_torch_version": "2.13",
+  "target_torch_version": "2.12",
+  "build_system": "setup.py",
+  "build_cmd": "bash build.sh",
+  "test_cmd": "bash test.sh",
+  "files": [
+    {
+      "path": "csrc/scale.cpp",
+      "concerns": ["unstable-api"],
+      "old_apis": ["at::Tensor", "TORCH_CHECK", "at::empty_like", "TORCH_LIBRARY", "TORCH_LIBRARY_IMPL"]
+    }
+  ],
+  "build_flags": {
+    "use_cuda": false,
+    "torch_target_version": "0x020c000000000000",
+    "py_limited_api": null
+  },
+  "existing_python_fakes": [],
+  "coverage_gaps": [],
+  "gap_closure_summary": {
+    "total": 0,
+    "closeable_by_bumping_target": {},
+    "structural": 0
+  },
+  "dispatch_order": [
+    {
+      "skill": "migrate-to-stable-apis",
+      "completed": false
+    }
+  ],
+  "migration_cadence": "one-shot",
+  "migration_cadence_reason": "Single first-party file; parallel stable target not worth the overhead.",
+  "cross_backend_analysis": {},
+  "blockers": [
+    {
+      "type": "vendored-source-unfetched",
+      "scope": "scaleops._C",
+      "files": [
+        "${repo-fastscale}/src/fastscale_kernels.cu",
+        "${repo-fastscale}/src/fastscale_dispatch.cpp"
+      ],
+      "reason": "CMake FetchContent_Declare(repo-fastscale GIT_REPOSITORY https://github.com/example/fastscale GIT_TAG v0.3.1) sources are compiled into the shipped wheel, but build/_deps/ is empty and the assess run had no network access to fetch them. They could not be audited or migrated; the wheel cannot ship as ABI-stable until they are.",
+      "remediation_options": [
+        "Re-run assess-abi-migration on a host with network access after 'cmake -S . -B build' populates build/_deps/",
+        "Upstream the stable-ABI migration via PRs to example/fastscale and bump GIT_TAG",
+        "Fork-and-patch: vendor the sources under csrc/third_party/ with the migration applied"
+      ]
+    }
+  ]
+}

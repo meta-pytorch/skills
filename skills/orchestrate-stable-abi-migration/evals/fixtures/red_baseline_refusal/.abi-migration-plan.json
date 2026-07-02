@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-30T12:00:00Z",
+  "repo_root": ".",
+  "build_torch_version": "2.13",
+  "target_torch_version": "2.12",
+  "build_system": "setup.py",
+  "build_cmd": "bash build.sh",
+  "test_cmd": "bash test.sh",
+  "files": [
+    {
+      "path": "csrc/scale.cpp",
+      "concerns": ["unstable-api"],
+      "old_apis": ["at::Tensor", "TORCH_CHECK", "at::empty_like", "TORCH_LIBRARY", "TORCH_LIBRARY_IMPL"]
+    }
+  ],
+  "build_flags": {
+    "use_cuda": false,
+    "torch_target_version": "0x020c000000000000",
+    "py_limited_api": null
+  },
+  "existing_python_fakes": [],
+  "coverage_gaps": [],
+  "gap_closure_summary": {
+    "total": 0,
+    "closeable_by_bumping_target": {},
+    "structural": 0
+  },
+  "dispatch_order": [
+    {
+      "skill": "migrate-to-stable-apis",
+      "completed": false
+    }
+  ],
+  "migration_cadence": "one-shot",
+  "migration_cadence_reason": "Single first-party file; parallel stable target not worth the overhead.",
+  "cross_backend_analysis": {},
+  "blockers": []
+}
