@@ -1,0 +1,4 @@
+{
+  "extension_cpp/csrc/muladd.cu": "9e2d64a23d2595905fbf552d42ba29c1752a16ce85373cfbf9fbb317329aa6fb",
+  "extension_cpp/csrc/attention.cu": "552c0cac01a0b74432630f8c7344940d3d5f92c650087eeb6bb793f4aae508f8"
+}

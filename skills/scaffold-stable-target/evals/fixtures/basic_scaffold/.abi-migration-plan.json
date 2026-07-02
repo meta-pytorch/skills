@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-30T12:00:00Z",
+  "repo_root": ".",
+  "build_torch_version": "2.13.0",
+  "target_torch_version": "2.12.0",
+  "build_system": "setup.py",
+  "files": [
+    {
+      "path": "extension_cpp/csrc/muladd.cu",
+      "concerns": ["unstable-api"],
+      "old_apis": ["at::Tensor", "TORCH_CHECK", "c10::cuda::CUDAGuard", "at::cuda::getCurrentCUDAStream"]
+    },
+    {
+      "path": "extension_cpp/csrc/attention.cu",
+      "concerns": ["unstable-api"],
+      "old_apis": ["at::Tensor", "TORCH_CHECK", "c10::cuda::CUDAGuard", "at::matmul", "at::softmax"]
+    }
+  ],
+  "build_flags": {
+    "use_cuda": true,
+    "torch_target_version": null,
+    "py_limited_api": null
+  },
+  "existing_python_fakes": [],
+  "coverage_gaps": [],
+  "dispatch_order": [
+    "scaffold-stable-target",
+    "migrate-to-stable-apis"
+  ],
+  "migration_cadence": "incremental",
+  "migration_cadence_reason": "attention.cu depends on composite ATen ops with no stable equivalents yet; files will migrate over multiple PRs while the legacy target keeps serving un-migrated ops.",
+  "blockers": []
+}

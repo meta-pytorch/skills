@@ -1,0 +1,164 @@
+eval_version: "1"
+skill_name: "scaffold-stable-target"
+skill_path: "skills/scaffold-stable-target/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "basic_scaffold"
+    description: >-
+      Standard incremental scaffold: add a parallel ABI-stable ext_modules entry with empty
+      sources and TORCH_TARGET_VERSION, guarded dual load_library in __init__.py, legacy entry
+      and all csrc files byte-identical.
+    user_message: >-
+      Set up the parallel ABI-stable build target for this extension so we can migrate it
+      incrementally per .abi-migration-plan.json. Assume: build torch = installed version,
+      target torch version is 2.12 (TORCH_TARGET_VERSION hex 0x020c000000000000), incremental
+      cadence, and do NOT enable Py_LIMITED_API. Proceed without asking me any questions.
+      Do not compile or run the build; just set up setup.py and extension_cpp/__init__.py.
+    fixture: "fixtures/basic_scaffold"
+    tags:
+      - "smoke"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "scaffold-stable-target"
+      - type: "file_contains"
+        path: "setup.py"
+        value: "TORCH_TARGET_VERSION"
+      # __init__.py must survive the pre-first-migration state: only the legacy .so
+      # exists, and the stable loader guard must keep the import from crashing.
+      - type: "command_exit_code"
+        command: "python3 checks/load_smoke.py legacy_only"
+      # Once both .so files exist, both must be loaded (same torch.ops namespace).
+      - type: "command_exit_code"
+        command: "python3 checks/load_smoke.py both"
+    checker: "checkers:check_basic_scaffold"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            Does not move, rename, or rewrite any file under extension_cpp/csrc/ —
+            this step is setup-only.
+          - >-
+            Keeps the legacy extension_cpp._C entry untouched (same sources, no new
+            compile flags).
+        quality_factors:
+          - factor: >-
+              Explanation communicates the shared model: both targets reference the same
+              csrc/ directory and both .so files register into the same
+              torch.ops.extension_cpp namespace, so Python callers never change.
+            weight: 0.6
+          - factor: >-
+              Explains that the stable entry starts with empty sources= and grows as
+              migrate-to-stable-apis flips file paths over from the legacy entry.
+            weight: 0.4
+
+  - name: "py_limited_api_opt_in"
+    description: >-
+      Same scaffold but the user opts in to Py_LIMITED_API with a CPython 3.10 floor: the
+      stable entry needs the define, py_limited_api=True, and bdist_wheel py_limited_api
+      "cp310" in setup(); the legacy entry must stay clean.
+    user_message: >-
+      Set up the parallel ABI-stable build target for this extension so we can migrate it
+      incrementally per .abi-migration-plan.json. Assume: build torch = installed version,
+      target torch version is 2.12 (TORCH_TARGET_VERSION hex 0x020c000000000000), incremental
+      cadence. ALSO enable Py_LIMITED_API on the stable target with a CPython 3.10 floor
+      (hex 0x030a0000). Proceed without asking me any questions. Do not compile or run the
+      build; just set up setup.py and extension_cpp/__init__.py.
+    fixture: "fixtures/py_limited_api_opt_in"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "scaffold-stable-target"
+      - type: "file_contains"
+        path: "setup.py"
+        value: "TORCH_TARGET_VERSION"
+      - type: "file_contains"
+        path: "setup.py"
+        value: "Py_LIMITED_API"
+      - type: "command_exit_code"
+        command: "python3 checks/load_smoke.py legacy_only"
+      - type: "command_exit_code"
+        command: "python3 checks/load_smoke.py both"
+    checker: "checkers:check_py_limited_api"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The legacy extension_cpp._C entry gains neither TORCH_TARGET_VERSION nor
+            Py_LIMITED_API — both flags belong only on the stable target.
+        quality_factors:
+          - factor: >-
+              All three Py_LIMITED_API pieces are wired together coherently: the
+              -DPy_LIMITED_API define, py_limited_api=True on the Extension, and
+              bdist_wheel py_limited_api "cp310" in setup() options.
+            weight: 1.0
+
+  - name: "namespace_trap"
+    description: >-
+      Adversarial: the build rejects empty sources, so the trivial stub .cpp is required.
+      The trap is the stub's STABLE_TORCH_LIBRARY namespace — it must stay extension_cpp
+      (shared with the legacy TORCH_LIBRARY block), never extension_cpp_stable.
+    user_message: >-
+      Set up the parallel ABI-stable build target for this extension so we can migrate it
+      incrementally per .abi-migration-plan.json. Note: our CI build system errors out on
+      any ext_modules entry with an empty sources= list, so the stable target needs the
+      trivial stub source described in the skill. Assume: build torch = installed version,
+      target torch version is 2.12 (TORCH_TARGET_VERSION hex 0x020c000000000000), incremental
+      cadence, do NOT enable Py_LIMITED_API. Proceed without asking me any questions.
+      Do not compile or run the build; just set up setup.py, the stub, and
+      extension_cpp/__init__.py.
+    fixture: "fixtures/namespace_trap"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "scaffold-stable-target"
+      - type: "file_contains"
+        path: "setup.py"
+        value: "TORCH_TARGET_VERSION"
+    checker: "checkers:check_namespace_trap"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The stub's STABLE_TORCH_LIBRARY block uses the extension_cpp namespace — the
+            SAME torch.ops namespace as the existing TORCH_LIBRARY block, with no _stable
+            suffix anywhere.
+        quality_factors:
+          - factor: >-
+              Explains why the namespace is shared: Python callers keep calling
+              torch.ops.extension_cpp.<op> unchanged, and the additive schema fragments
+              mean the empty STABLE_TORCH_LIBRARY block does not conflict with the legacy
+              TORCH_LIBRARY block.
+            weight: 1.0
+
+  - name: "one_shot_plan_trap"
+    description: >-
+      Adversarial: the plan records migration_cadence "one-shot" and omits
+      scaffold-stable-target from dispatch_order. The correct behavior is to recognize the
+      skill does not apply, leave setup.py and __init__.py untouched, and tell the user why.
+    user_message: >-
+      Set up the stable build target for this extension per the migration plan in
+      .abi-migration-plan.json. Assume: build torch = installed version, target torch
+      version is 2.12 (TORCH_TARGET_VERSION hex 0x020c000000000000). Proceed without asking
+      me any questions.
+    fixture: "fixtures/one_shot_plan_trap"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "scaffold-stable-target"
+    checker: "checkers:check_one_shot_plan_trap"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            Recognizes the plan's one-shot cadence (and scaffold-stable-target's absence
+            from dispatch_order) and declines to scaffold a parallel target, instead of
+            silently adding one.
+          - >-
+            Explains to the user that for one-shot migrations migrate-to-stable-apis adds
+            TORCH_TARGET_VERSION directly to the existing ext_modules entry, so a parallel
+            target is pure overhead.
+        quality_factors:
+          - factor: >-
+              Response is clear about what it did NOT do and why, and points to the
+              plan's migration_cadence field as the source of the decision.
+            weight: 1.0
