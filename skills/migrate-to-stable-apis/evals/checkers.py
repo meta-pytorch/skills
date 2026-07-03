@@ -55,6 +55,102 @@ def _strip_comments(source: str) -> str:
     return re.sub(r"//[^\n]*", "", without_block)
 
 
+def _extract_params(source: str, fn_name: str) -> list[str] | None:
+    """Return the raw parameter declarations of a function definition.
+
+    Finds ``<fn_name>(`` followed eventually by ``) {`` and splits the
+    parameter list on top-level commas. Returns None if no definition is
+    found (declarations followed by ``;`` are skipped).
+    """
+    source = _strip_comments(source)
+    for match in re.finditer(rf"(?<![A-Za-z0-9_]){re.escape(fn_name)}\s*\(", source):
+        depth = 1
+        pos = match.end()
+        start = pos
+        while pos < len(source) and depth > 0:
+            if source[pos] == "(":
+                depth += 1
+            elif source[pos] == ")":
+                depth -= 1
+            pos += 1
+        if depth != 0:
+            continue
+        body = source[pos:].lstrip()
+        if not body.startswith("{"):
+            continue  # declaration or call, not the definition
+        params_src = source[start : pos - 1].strip()
+        if not params_src:
+            return []
+        params = []
+        depth = 0
+        current = ""
+        for char in params_src:
+            if char in "<(":
+                depth += 1
+            elif char in ">)":
+                depth -= 1
+            if char == "," and depth == 0:
+                params.append(current.strip())
+                current = ""
+            else:
+                current += char
+        params.append(current.strip())
+        return params
+    return None
+
+
+def _normalize_param(param: str) -> str:
+    """Reduce a parameter declaration to 'const <Base>&' shape information.
+
+    The parameter name is dropped; tensor spellings are unified so the same
+    expected list matches both the legacy and the migrated type names. Const
+    and reference qualifiers are preserved verbatim — that is the point.
+    """
+    param = re.sub(r"\s+", " ", param).strip()
+    # Drop the trailing parameter name (an identifier not part of the type).
+    param = re.sub(r"\s*([A-Za-z_][A-Za-z0-9_]*)$", "", param)
+    param = param.strip()
+    is_const = param.startswith("const ")
+    if is_const:
+        param = param[len("const ") :]
+    is_ref = param.endswith("&")
+    if is_ref:
+        param = param[:-1].strip()
+    base = param.replace(" ", "")
+    base = re.sub(r"\b(?:at|torch::stable)::Tensor\b", "Tensor", base)
+    base = base.replace("at::Tensor", "Tensor").replace("torch::stable::Tensor", "Tensor")
+    return f"{'const ' if is_const else ''}{base}{'&' if is_ref else ''}"
+
+
+def _signature_problems(source: str, rel: str, fn_name: str, expected: list[str]) -> list[str]:
+    """Compare a function's param qualifiers against the expected shape.
+
+    ``expected`` entries use the normalized form from _normalize_param, e.g.
+    'const Tensor&', 'Tensor&', 'std::optional<Tensor>', 'double'. Per
+    critical rule 7, the migration may swap tensor type names but must not
+    add or drop const, switch by-value/by-reference, reorder, or retype
+    anything else.
+    """
+    params = _extract_params(source, fn_name)
+    if params is None:
+        return [f"{rel}: could not find the definition of {fn_name}(...)"]
+    actual = [_normalize_param(p) for p in params]
+    if len(actual) != len(expected):
+        return [
+            f"{rel}: {fn_name} has {len(actual)} parameters, expected "
+            f"{len(expected)} (arguments must not be added, dropped, or merged)"
+        ]
+    problems = []
+    for index, (got, want) in enumerate(zip(actual, expected, strict=True)):
+        if got != want:
+            problems.append(
+                f"{rel}: {fn_name} parameter {index + 1} is '{got}' but the "
+                f"original (modulo required type swaps) is '{want}' — do not "
+                "add/drop const or switch by-value/by-reference"
+            )
+    return problems
+
+
 def _common_cpp_problems(source: str, rel: str) -> list[str]:
     """Problems every fully migrated C++/CUDA file must not have."""
     source = _strip_comments(source)
@@ -80,6 +176,20 @@ def check_fa3_attention(
         return _fail(f"{rel} is missing (file must be migrated in place)")
 
     problems = _common_cpp_problems(source, rel)
+    problems.extend(
+        _signature_problems(
+            source,
+            rel,
+            "attention_fwd",
+            [
+                "const Tensor&",
+                "const Tensor&",
+                "const Tensor&",
+                "std::optional<Tensor>",
+                "double",
+            ],
+        )
+    )
     source = _strip_comments(source)
     if ".data_ptr<" in source:
         problems.append(
@@ -110,6 +220,14 @@ def check_cuda_stream_migration(
         return _fail(f"{rel} is missing (file must be migrated in place)")
 
     problems = _common_cpp_problems(source, rel)
+    problems.extend(
+        _signature_problems(
+            source,
+            rel,
+            "rotary_embedding",
+            ["const Tensor&", "Tensor&", "const Tensor&"],
+        )
+    )
     source = _strip_comments(source)
 
     if "getCurrentDeviceIndex" in source:
@@ -156,6 +274,9 @@ def check_strided_trap(
         return _fail(f"{rel} is missing (file must be migrated in place)")
 
     problems = _common_cpp_problems(source, rel)
+    problems.extend(
+        _signature_problems(source, rel, "scale_to_colmajor", ["const Tensor&", "double"])
+    )
     source = _strip_comments(source)
     if "new_empty_strided" in source:
         problems.append(
@@ -219,6 +340,9 @@ def check_namespace_preserved(
         return _fail(f"{rel} is missing (file must be migrated in place)")
 
     problems = _common_cpp_problems(source, rel)
+    problems.extend(
+        _signature_problems(source, rel, "rmsnorm", ["const Tensor&", "const Tensor&", "double"])
+    )
     source = _strip_comments(source)
     if "fastkernels_stable" in source:
         problems.append(
@@ -327,13 +451,19 @@ def check_setup_py_wiring(
         if src not in setup_src:
             problems.append(f"{src} is no longer listed in setup.py sources")
 
-    # And both migrated sources must be clean of legacy APIs.
-    for rel in ("csrc/muladd.cpp", "csrc/relu_op.cpp"):
+    # And both migrated sources must be clean of legacy APIs, with the
+    # original const/ref qualifiers intact.
+    expected_signatures = {
+        "csrc/muladd.cpp": ("muladd", ["const Tensor&", "const Tensor&", "double"]),
+        "csrc/relu_op.cpp": ("relu_out", ["const Tensor&", "Tensor&"]),
+    }
+    for rel, (fn_name, expected) in expected_signatures.items():
         source = _read(workdir, rel)
         if source is None:
             problems.append(f"{rel} is missing")
             continue
         problems.extend(_common_cpp_problems(source, rel))
+        problems.extend(_signature_problems(source, rel, fn_name, expected))
         if "TORCH_BOX(" not in source:
             problems.append(f"{rel}: m.impl must wrap the kernel pointer in TORCH_BOX(...)")
 
@@ -380,6 +510,9 @@ def check_torch_check_bodies(
         return _fail(f"{rel} is missing (file must be migrated in place)")
 
     problems = _common_cpp_problems(source, rel)
+    problems.extend(
+        _signature_problems(source, rel, "checked_flatten", ["const Tensor&", "int64_t"])
+    )
 
     normalized = _normalize_cpp(source)
     for body in EXPECTED_CHECK_BODIES:
