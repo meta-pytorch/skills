@@ -1,0 +1,515 @@
+{
+  "segments": [
+    {
+      "address": 1048576,
+      "total_size": 2147483648,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 1879048192,
+      "active_size": 2147483648,
+      "blocks": [
+        {
+          "address": 1048576,
+          "size": 805306368,
+          "requested_size": 805306368,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/model/parameters.py", "line": 33, "name": "init_model"},
+            {"filename": "/workspace/train/train_loop.py", "line": 41, "name": "main"}
+          ]
+        },
+        {
+          "address": 806354944,
+          "size": 1073741824,
+          "requested_size": 1073741824,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/optimizer.py", "line": 88, "name": "init_optimizer_state"},
+            {"filename": "/workspace/train/train_loop.py", "line": 45, "name": "main"}
+          ]
+        },
+        {
+          "address": 1880096768,
+          "size": 268435456,
+          "requested_size": 268435456,
+          "state": "active_awaiting_free",
+          "frames": [
+            {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+            {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step"}
+          ]
+        }
+      ]
+    },
+    {
+      "address": 3221225472,
+      "total_size": 1073741824,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 536870912,
+      "active_size": 536870912,
+      "blocks": [
+        {
+          "address": 3221225472,
+          "size": 536870912,
+          "requested_size": 536870912,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+            {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 3758096384,
+          "size": 536870912,
+          "requested_size": 0,
+          "state": "inactive",
+          "frames": []
+        }
+      ]
+    },
+    {
+      "address": 4294967296,
+      "total_size": 1073741824,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 671088640,
+      "active_size": 671088640,
+      "blocks": [
+        {
+          "address": 4294967296,
+          "size": 134217728,
+          "requested_size": 134217728,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+            {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 4429185024,
+          "size": 134217728,
+          "requested_size": 134217728,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+            {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 4563402752,
+          "size": 134217728,
+          "requested_size": 134217728,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+            {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 4697620480,
+          "size": 134217728,
+          "requested_size": 134217728,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+            {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 4831838208,
+          "size": 134217728,
+          "requested_size": 134217728,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+            {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 4966055936,
+          "size": 402653184,
+          "requested_size": 0,
+          "state": "inactive",
+          "frames": []
+        }
+      ]
+    }
+  ],
+  "device_traces": [
+    [
+      {
+        "action": "segment_alloc",
+        "addr": 1048576,
+        "size": 2147483648,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 0
+      },
+      {
+        "action": "alloc",
+        "addr": 1048576,
+        "size": 805306368,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 1,
+        "frames": [
+          {"filename": "/workspace/model/parameters.py", "line": 33, "name": "init_model"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 806354944,
+        "size": 1073741824,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 2,
+        "frames": [
+          {"filename": "/workspace/train/optimizer.py", "line": 88, "name": "init_optimizer_state"}
+        ]
+      },
+      {
+        "action": "segment_alloc",
+        "addr": 3221225472,
+        "size": 1073741824,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 3
+      },
+      {
+        "action": "segment_alloc",
+        "addr": 4294967296,
+        "size": 1073741824,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 4
+      },
+      {
+        "action": "alloc",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 5,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_1"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 6,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_1"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 4294967296,
+        "size": 134217728,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 7,
+        "frames": [
+          {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+          {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step_1"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 8
+      },
+      {
+        "action": "free_completed",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 9
+      },
+      {
+        "action": "free_requested",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 10
+      },
+      {
+        "action": "free_completed",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 11
+      },
+      {
+        "action": "alloc",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 12,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_2"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 13,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_2"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 4429185024,
+        "size": 134217728,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 14,
+        "frames": [
+          {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+          {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step_2"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 15
+      },
+      {
+        "action": "free_completed",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 16
+      },
+      {
+        "action": "free_requested",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 17
+      },
+      {
+        "action": "free_completed",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 18
+      },
+      {
+        "action": "alloc",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 19,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_3"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 20,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_3"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 4563402752,
+        "size": 134217728,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 21,
+        "frames": [
+          {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+          {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step_3"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 22
+      },
+      {
+        "action": "free_completed",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 23
+      },
+      {
+        "action": "free_requested",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 24
+      },
+      {
+        "action": "free_completed",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 25
+      },
+      {
+        "action": "alloc",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 26,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_4"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 27,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_4"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 4697620480,
+        "size": 134217728,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 28,
+        "frames": [
+          {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+          {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step_4"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 29
+      },
+      {
+        "action": "free_completed",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 30
+      },
+      {
+        "action": "free_requested",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 31
+      },
+      {
+        "action": "free_completed",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 32
+      },
+      {
+        "action": "alloc",
+        "addr": 3221225472,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 33,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 42, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_5"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 34,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 57, "name": "attention_scores"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step_5"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 4831838208,
+        "size": 134217728,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 35,
+        "frames": [
+          {"filename": "/workspace/train/callback.py", "line": 17, "name": "on_step_end"},
+          {"filename": "/workspace/train/train_loop.py", "line": 138, "name": "train_step_5"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 1880096768,
+        "size": 268435456,
+        "stream": 1,
+        "pool_id": [0, 0],
+        "sequence_nr": 36
+      },
+      {
+        "action": "snapshot",
+        "addr": 0,
+        "size": 0,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 37
+      }
+    ]
+  ]
+}

@@ -1,0 +1,150 @@
+eval_version: "1"
+skill_name: "analyze-memory-snapshot"
+skill_path: "skills/analyze-memory-snapshot/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "summarize_fixture_snapshot"
+    description: >
+      The skill analyzes a five-step PyTorch CUDA memory snapshot and explains
+      top allocation sites, deallocation timing, leak signals, and allocator
+      caching or fragmentation.
+    user_message: |
+      Analyze the PyTorch CUDA memory snapshot at `sample_snapshot.json`.
+      It was captured after about five training steps. Tell me where most GPU
+      memory is going, when memory is getting deallocated, and whether there are
+      signs of a memory leak or allocator issue.
+    fixture: "fixtures/summarize_fixture_snapshot"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "analyze-memory-snapshot"
+      - type: "output_contains_ci"
+        value: "optimizer"
+      - type: "output_contains_ci"
+        value: "inactive"
+    checker: "checkers:check_snapshot_analysis"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must identify optimizer.py or optimizer state as the largest live allocation site"
+          - "Must mention activation.py or activations as another major memory consumer"
+          - "Must distinguish live allocated memory from inactive cached/reserved memory"
+          - "Must discuss deallocation timing using free_requested/free_completed or pending frees"
+          - >
+            Must call out a plausible leak or retained-tensor pattern from callback allocations
+            repeated over five steps
+        quality_factors:
+          - factor: "Quantifies memory usage with sizes or relative shares"
+            weight: 0.35
+          - factor: "Provides concrete next debugging steps tied to the snapshot evidence"
+            weight: 0.35
+          - factor: "Explains allocator behavior without mislabeling cached memory as a tensor leak"
+            weight: 0.30
+
+  - name: "oom_snapshot_analysis"
+    description: >
+      The skill analyzes a snapshot captured after a CUDA OOM and identifies the
+      failed allocation, live memory owners, pending frees, and allocator state.
+    user_message: |
+      Analyze the PyTorch CUDA memory snapshot at `oom_snapshot.json`.
+      This was captured right after a CUDA out-of-memory error. Explain what
+      allocation failed, what was holding memory at the OOM, whether inactive
+      cached memory or fragmentation matters, and what I should try next.
+    fixture: "fixtures/oom_snapshot"
+    tags:
+      - "oom"
+      - "allocator"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "analyze-memory-snapshot"
+      - type: "output_contains_ci"
+        value: "oom"
+      - type: "output_contains_ci"
+        value: "device"
+    checker: "checkers:check_oom_analysis"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must identify the OOM event and the failed allocation request size"
+          - "Must mention device_free or device free memory from the OOM trace"
+          - "Must identify optimizer, parameters, or activations as dominant live memory owners"
+          - "Must discuss active_awaiting_free or pending frees as a distinct state"
+          - "Must explain whether inactive cached/reserved memory is enough to explain or fix the OOM"
+        quality_factors:
+          - factor: "Quantifies the OOM and live-memory breakdown"
+            weight: 0.35
+          - factor: "Avoids treating all reserved memory as leaked tensor memory"
+            weight: 0.30
+          - factor: "Provides concrete remediation steps tied to the allocation evidence"
+            weight: 0.35
+
+  - name: "leak_diff_analysis"
+    description: >
+      The skill diffs two snapshots from the same training run and pinpoints
+      the single allocation site whose live memory grows across steps, while
+      correctly treating stable optimizer state as expected retention.
+    user_message: |
+      I captured two PyTorch CUDA memory snapshots from the same training run:
+      `snapshot_step_005.json` after step 5 and `snapshot_step_050.json` after
+      step 50. Live memory keeps growing and the job eventually OOMs. Figure
+      out what is leaking and tell me how to fix it.
+    fixture: "fixtures/leak_diff"
+    tags:
+      - "leak"
+      - "diff"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "analyze-memory-snapshot"
+      - type: "output_contains_ci"
+        value: "metrics.py"
+      - type: "output_contains_ci"
+        value: "detach"
+    checker: "checkers:check_leak_diff_analysis"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must identify metrics.py (log_step_loss) as the growing allocation site"
+          - "Must quantify the growth between the two snapshots (bytes or block counts)"
+          - >
+            Must state that optimizer state and parameters are stable between
+            snapshots and are expected retention, not the leak
+          - >
+            Must recommend detaching (or .item()/moving to CPU) the logged loss
+            tensor before storing it
+        quality_factors:
+          - factor: "Uses a per-site diff of the two snapshots rather than eyeballing totals"
+            weight: 0.4
+          - factor: "Explains why an undetached loss retains the autograd graph"
+            weight: 0.3
+          - factor: "Projects growth forward to connect the leak to the eventual OOM"
+            weight: 0.3
+
+  - name: "capture_guidance"
+    description: "The skill explains how to capture a PyTorch CUDA memory snapshot for leak debugging."
+    user_message: |
+      I do not have a snapshot yet. How should I capture a PyTorch memory snapshot
+      for a CUDA OOM that might be caused by tensors leaking over training steps?
+    tags:
+      - "capture"
+      - "oom"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "analyze-memory-snapshot"
+      - type: "output_contains_ci"
+        value: "_record_memory_history"
+      - type: "output_contains_ci"
+        value: "_dump_snapshot"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Must show or describe enabling torch.cuda.memory._record_memory_history"
+          - "Must show or describe saving with torch.cuda.memory._dump_snapshot"
+          - "Must say to disable recording afterward or use a finally block"
+          - "Must mention max_entries, OOM exception capture, or history size considerations"
+        quality_factors:
+          - factor: "Gives a minimal runnable capture pattern"
+            weight: 0.5
+          - factor: "Connects capture guidance to leak debugging across training steps"
+            weight: 0.5
