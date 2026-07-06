@@ -1,0 +1,223 @@
+{
+ "segments": [
+  {
+   "address": 1048576,
+   "total_size": 805306368,
+   "stream": 0,
+   "segment_type": "large",
+   "allocated_size": 805306368,
+   "active_size": 805306368,
+   "blocks": [
+    {
+     "address": 1048576,
+     "size": 805306368,
+     "requested_size": 805306368,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/workspace/model/parameters.py",
+       "line": 33,
+       "name": "init_model"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 41,
+       "name": "main"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "address": 2148532224,
+   "total_size": 1610612736,
+   "stream": 0,
+   "segment_type": "large",
+   "allocated_size": 1610612736,
+   "active_size": 1610612736,
+   "blocks": [
+    {
+     "address": 2148532224,
+     "size": 1610612736,
+     "requested_size": 1610612736,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/optim/adamw.py",
+       "line": 155,
+       "name": "_init_group"
+      },
+      {
+       "filename": "/workspace/train/optimizer.py",
+       "line": 27,
+       "name": "build_optimizer"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 88,
+       "name": "train_step"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "address": 8590983168,
+   "total_size": 423624704,
+   "stream": 0,
+   "segment_type": "large",
+   "allocated_size": 289406976,
+   "active_size": 289406976,
+   "blocks": [
+    {
+     "address": 8590983168,
+     "size": 4194304,
+     "requested_size": 4194304,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/functional.py",
+       "line": 3086,
+       "name": "cross_entropy"
+      },
+      {
+       "filename": "/workspace/train/metrics.py",
+       "line": 54,
+       "name": "log_step_loss"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 97,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 8595177472,
+     "size": 4194304,
+     "requested_size": 4194304,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/functional.py",
+       "line": 3086,
+       "name": "cross_entropy"
+      },
+      {
+       "filename": "/workspace/train/metrics.py",
+       "line": 54,
+       "name": "log_step_loss"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 97,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 8599371776,
+     "size": 4194304,
+     "requested_size": 4194304,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/functional.py",
+       "line": 3086,
+       "name": "cross_entropy"
+      },
+      {
+       "filename": "/workspace/train/metrics.py",
+       "line": 54,
+       "name": "log_step_loss"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 97,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 8603566080,
+     "size": 4194304,
+     "requested_size": 4194304,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/functional.py",
+       "line": 3086,
+       "name": "cross_entropy"
+      },
+      {
+       "filename": "/workspace/train/metrics.py",
+       "line": 54,
+       "name": "log_step_loss"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 97,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 8607760384,
+     "size": 4194304,
+     "requested_size": 4194304,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/functional.py",
+       "line": 3086,
+       "name": "cross_entropy"
+      },
+      {
+       "filename": "/workspace/train/metrics.py",
+       "line": 54,
+       "name": "log_step_loss"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 97,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 17180917760,
+     "size": 268435456,
+     "requested_size": 268435456,
+     "state": "active_allocated",
+     "frames": [
+      {
+       "filename": "/usr/lib/python3/site-packages/torch/nn/modules/linear.py",
+       "line": 125,
+       "name": "forward"
+      },
+      {
+       "filename": "/workspace/model/activation.py",
+       "line": 61,
+       "name": "mlp_forward"
+      },
+      {
+       "filename": "/workspace/train/train_loop.py",
+       "line": 92,
+       "name": "train_step"
+      }
+     ]
+    },
+    {
+     "address": 18254659584,
+     "size": 134217728,
+     "requested_size": 134217728,
+     "state": "inactive",
+     "frames": []
+    }
+   ]
+  }
+ ],
+ "device_traces": [
+  []
+ ]
+}

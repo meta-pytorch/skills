@@ -1,0 +1,214 @@
+{
+  "segments": [
+    {
+      "address": 1048576,
+      "total_size": 4294967296,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 3758096384,
+      "active_size": 4294967296,
+      "blocks": [
+        {
+          "address": 1048576,
+          "size": 2147483648,
+          "requested_size": 2147483648,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/model/parameters.py", "line": 33, "name": "init_model"},
+            {"filename": "/workspace/train/train_loop.py", "line": 41, "name": "main"}
+          ]
+        },
+        {
+          "address": 2148532224,
+          "size": 1610612736,
+          "requested_size": 1610612736,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/optimizer.py", "line": 91, "name": "init_optimizer_state"},
+            {"filename": "/workspace/train/train_loop.py", "line": 45, "name": "main"}
+          ]
+        },
+        {
+          "address": 3759144960,
+          "size": 536870912,
+          "requested_size": 536870912,
+          "state": "active_awaiting_free",
+          "frames": [
+            {"filename": "/workspace/distributed/reduce.py", "line": 64, "name": "all_reduce_bucket"},
+            {"filename": "/workspace/train/train_loop.py", "line": 149, "name": "train_step"}
+          ]
+        }
+      ]
+    },
+    {
+      "address": 5368709120,
+      "total_size": 2147483648,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 1879048192,
+      "active_size": 1879048192,
+      "blocks": [
+        {
+          "address": 5368709120,
+          "size": 1342177280,
+          "requested_size": 1342177280,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/model/activation.py", "line": 48, "name": "forward"},
+            {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 6710886400,
+          "size": 536870912,
+          "requested_size": 536870912,
+          "state": "active_allocated",
+          "frames": [
+            {"filename": "/workspace/train/loss_history.py", "line": 22, "name": "record_loss"},
+            {"filename": "/workspace/train/train_loop.py", "line": 140, "name": "train_step"}
+          ]
+        },
+        {
+          "address": 7247757312,
+          "size": 268435456,
+          "requested_size": 0,
+          "state": "inactive",
+          "frames": []
+        }
+      ]
+    },
+    {
+      "address": 7516192768,
+      "total_size": 1073741824,
+      "stream": 0,
+      "segment_type": "large",
+      "segment_pool_id": [0, 0],
+      "allocated_size": 0,
+      "active_size": 0,
+      "blocks": [
+        {
+          "address": 7516192768,
+          "size": 1073741824,
+          "requested_size": 0,
+          "state": "inactive",
+          "frames": []
+        }
+      ]
+    }
+  ],
+  "device_traces": [
+    [
+      {
+        "action": "segment_alloc",
+        "addr": 1048576,
+        "size": 4294967296,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 0
+      },
+      {
+        "action": "alloc",
+        "addr": 1048576,
+        "size": 2147483648,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 1,
+        "frames": [
+          {"filename": "/workspace/model/parameters.py", "line": 33, "name": "init_model"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 2148532224,
+        "size": 1610612736,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 2,
+        "frames": [
+          {"filename": "/workspace/train/optimizer.py", "line": 91, "name": "init_optimizer_state"}
+        ]
+      },
+      {
+        "action": "segment_alloc",
+        "addr": 5368709120,
+        "size": 2147483648,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 3
+      },
+      {
+        "action": "segment_alloc",
+        "addr": 7516192768,
+        "size": 1073741824,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 4
+      },
+      {
+        "action": "alloc",
+        "addr": 5368709120,
+        "size": 1342177280,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 5,
+        "frames": [
+          {"filename": "/workspace/model/activation.py", "line": 48, "name": "forward"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 6710886400,
+        "size": 536870912,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 6,
+        "frames": [
+          {"filename": "/workspace/train/loss_history.py", "line": 22, "name": "record_loss"},
+          {"filename": "/workspace/train/train_loop.py", "line": 140, "name": "train_step"}
+        ]
+      },
+      {
+        "action": "alloc",
+        "addr": 3759144960,
+        "size": 536870912,
+        "stream": 7,
+        "pool_id": [0, 0],
+        "sequence_nr": 7,
+        "frames": [
+          {"filename": "/workspace/distributed/reduce.py", "line": 64, "name": "all_reduce_bucket"}
+        ]
+      },
+      {
+        "action": "free_requested",
+        "addr": 3759144960,
+        "size": 536870912,
+        "stream": 7,
+        "pool_id": [0, 0],
+        "sequence_nr": 8
+      },
+      {
+        "action": "oom",
+        "size": 2147483648,
+        "stream": 0,
+        "device_free": 67108864,
+        "pool_id": [0, 0],
+        "sequence_nr": 9,
+        "frames": [
+          {"filename": "/workspace/model/attention.py", "line": 77, "name": "allocate_attention_workspace"},
+          {"filename": "/workspace/train/train_loop.py", "line": 133, "name": "train_step"}
+        ]
+      },
+      {
+        "action": "snapshot",
+        "addr": 0,
+        "size": 0,
+        "stream": 0,
+        "pool_id": [0, 0],
+        "sequence_nr": 10
+      }
+    ]
+  ]
+}
