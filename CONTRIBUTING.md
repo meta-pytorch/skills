@@ -270,3 +270,21 @@ and pull deeper material only when needed.
 - Call out which eval cases were exercised manually
 - Explain why the eval is a believable measure of the skill's value
 - Note any behavior you expect to improve in follow-up changes
+
+## Running evals in CI
+
+Reviewers can run the full eval harness (Claude runtime + Claude judge) for a
+PR's changed skills on an OSDC GPU devbox instead of their own machine, via
+the `Skill Evals` workflow (`.github/workflows/skill-evals.yaml`):
+
+- **Label gate**: a maintainer applies the `run-evals` label to the PR. This
+  is a deliberate human review step — the harness runs Claude with
+  `bypassPermissions` against PR code with Bedrock credentials available, so
+  read the PR's `SKILL.md`, fixtures, and `checkers.py` before labeling. To
+  re-run after new commits, remove and re-apply the label (re-review first).
+- **On demand**: `Skill Evals` can also be dispatched manually from the
+  Actions tab against `main` (optionally scoped to specific skill dirs).
+- Results appear in the job summary (per test case pass/fail and score); the
+  full JSON bundles and per-test debug artifacts (Claude commands, stdout,
+  stderr) are uploaded as the `skill-eval-results` artifact.
+- The job fails if any eval case fails, so the check status is meaningful.
