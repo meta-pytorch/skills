@@ -1,0 +1,203 @@
+name: Skill Evals
+
+# Runs the full eval harness (Claude runtime + Claude judge) for skills changed
+# in a PR, on an OSDC GPU devbox, so reviewers do not have to run evals on
+# their own machines.
+#
+# Trigger model:
+# - pull_request_target, gated on a maintainer applying the `run-evals` label.
+#   pull_request_target is required (not pull_request) because the `bedrock`
+#   environment's deployment branch policy only allows `main`; PR-branch refs
+#   would be denied the OIDC credentials. pull_request_target runs on the main
+#   ref, then this job explicitly checks out the PR head to evaluate it.
+# - workflow_dispatch from main for on-demand runs against merged skills.
+#
+# Security model: the eval harness runs Claude with --permission-mode
+# bypassPermissions against code from the PR branch, with Bedrock credentials
+# in the environment. The `run-evals` label is the human review gate: apply it
+# only after reading the PR's SKILL.md, fixtures, and checkers. The label must
+# be re-applied after new pushes (`synchronize` removes nothing by itself, so
+# maintainers should re-check before re-labeling force-pushed PRs).
+# Claude model access uses the same OIDC -> Bedrock path as the org-wide
+# Claude Code workflow (pytorch/test-infra _claude-code.yml).
+
+on:
+  pull_request_target:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      skills:
+        description: "Space-separated skill dirs (e.g. skills/profile-model); empty = all skills"
+        required: false
+        default: ""
+      model:
+        description: "Bedrock model ID for runtime and judge"
+        required: false
+        default: "global.anthropic.claude-opus-4-8"
+
+concurrency:
+  group: skill-evals-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  evals:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run-evals'
+    runs-on: mt-l-x86iamx-22-225-h100
+    container:
+      image: pytorch/almalinux-builder:cuda13.0
+      options: --gpus all
+    environment: bedrock
+    timeout-minutes: 120
+    steps:
+      # For pull_request_target this intentionally checks out the PR head
+      # (untrusted code); the run-evals label gate above is what authorizes it.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Detect skills to evaluate
+        id: detect
+        shell: bash
+        env:
+          INPUT_SKILLS: ${{ github.event.inputs.skills }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "$INPUT_SKILLS" ]; then
+              SKILL_PATHS="$INPUT_SKILLS"
+            else
+              SKILL_PATHS=$(find skills -mindepth 2 -maxdepth 2 -name SKILL.md \
+                | xargs -n1 dirname | sort | tr '\n' ' ')
+            fi
+          else
+            git fetch --quiet origin "$BASE_REF"
+            SKILL_PATHS=$(git diff --name-only "origin/$BASE_REF"...HEAD \
+              | grep '^skills/' \
+              | cut -d'/' -f1-2 \
+              | sort -u \
+              | while read -r dir; do [ -f "$dir/SKILL.md" ] && echo "$dir"; done \
+              | tr '\n' ' ' || true)
+          fi
+          echo "skill_paths=${SKILL_PATHS}" >> "$GITHUB_OUTPUT"
+          if [ -n "${SKILL_PATHS// /}" ]; then
+            echo "has_skills=true" >> "$GITHUB_OUTPUT"
+            echo "Will evaluate: ${SKILL_PATHS}"
+          else
+            echo "has_skills=false" >> "$GITHUB_OUTPUT"
+            echo "No changed skills with SKILL.md; nothing to evaluate."
+          fi
+
+      - name: GPU smoke check
+        if: steps.detect.outputs.has_skills == 'true'
+        shell: bash
+        run: nvidia-smi
+
+      - name: Set up Python environment
+        if: steps.detect.outputs.has_skills == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user --upgrade uv
+          export PATH="$HOME/.local/bin:$PATH"
+          uv python install 3.12
+          uv sync --group dev
+          # Torch so eval fixtures that exercise compile/CUDA paths work on the
+          # devbox. Pure-python deps come from the in-cluster pypi cache first:
+          # the OSDC H100 pool cannot reach files.pythonhosted.org, and the
+          # nightly index only re-links there (see pytorch/ao 1xH100_tests.yml).
+          uv pip install filelock typing-extensions "setuptools<82" sympy \
+            networkx jinja2 fsspec numpy pillow spmd-types
+          PIP_EXTRA_INDEX_URL= UV_EXTRA_INDEX_URL= uv pip install \
+            --pre torch --index-url https://download.pytorch.org/whl/nightly/cu130
+
+      - name: Install Claude Code CLI
+        if: steps.detect.outputs.has_skills == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://claude.ai/install.sh | bash
+          export PATH="$HOME/.local/bin:$PATH"
+          claude --version
+
+      - name: Configure AWS credentials via OIDC
+        if: steps.detect.outputs.has_skills == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::308535385114:role/gha_workflow_claude_code
+          aws-region: us-east-1
+
+      - name: Run skill evals
+        if: steps.detect.outputs.has_skills == 'true'
+        shell: bash
+        env:
+          CLAUDE_CODE_USE_BEDROCK: "1"
+          EVAL_MODEL: ${{ github.event.inputs.model || 'global.anthropic.claude-opus-4-8' }}
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          export VIRTUAL_ENV="$PWD/.venv"
+          export PATH="$VIRTUAL_ENV/bin:$PATH"
+          mkdir -p eval-results eval-debug
+          RUN_ERRORS=0
+          for SKILL_PATH in ${{ steps.detect.outputs.skill_paths }}; do
+            SKILL=$(basename "$SKILL_PATH")
+            echo "::group::Evaluating $SKILL"
+            uv run python -m skill_eval run "$SKILL_PATH" \
+              --model "$EVAL_MODEL" \
+              --output-json "eval-results/$SKILL.json" \
+              --debug-dir "eval-debug/$SKILL" \
+              --verbose || RUN_ERRORS=1
+            echo "::endgroup::"
+          done
+          # skill_eval run always exits 0; enforce pass/fail from the bundles.
+          uv run python - <<'EOF'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          failed = []
+          summary_lines = ["## Skill Eval Results", ""]
+          for bundle in sorted(pathlib.Path("eval-results").glob("*.json")):
+              data = json.loads(bundle.read_text())
+              for test in data["test_results"]:
+                  status = "PASS" if test["passed"] else "FAIL"
+                  summary_lines.append(
+                      f"- **{data['skill_name']}** / `{test['test_case_name']}` "
+                      f"[{test['model']}]: {status} (score {test['score']:.2f})"
+                  )
+                  if not test["passed"]:
+                      failed.append(f"{data['skill_name']}/{test['test_case_name']}")
+          summary = "\n".join(summary_lines)
+          print(summary)
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              pathlib.Path(step_summary).write_text(summary + "\n")
+          if failed:
+              print(f"\nFailed eval cases: {', '.join(failed)}", file=sys.stderr)
+              sys.exit(1)
+          EOF
+          if [ "$RUN_ERRORS" -ne 0 ]; then
+            echo "One or more eval runs errored before producing results" >&2
+            exit 1
+          fi
+
+      - name: Upload eval artifacts
+        if: always() && steps.detect.outputs.has_skills == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-eval-results
+          path: |
+            eval-results/
+            eval-debug/
+          if-no-files-found: ignore
+          retention-days: 14
