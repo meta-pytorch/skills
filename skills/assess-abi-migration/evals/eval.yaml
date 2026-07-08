@@ -1,0 +1,113 @@
+eval_version: "1"
+skill_name: "assess-abi-migration"
+skill_path: "skills/assess-abi-migration/SKILL.md"
+
+models:
+  - "claude-opus-4-6"
+
+test_cases:
+  - name: "full_repo_assessment"
+    description: >-
+      Audits a realistic mixed-concern extension repo (pybind bindings, C++ meta fns,
+      C++ autograd fns, CUDA unstable APIs, an existing Python fake, an out-of-scope
+      experimental dir) and emits a correct .abi-migration-plan.json.
+    user_message: >-
+      Assess this repo (the current directory is the repo root) for stable-ABI
+      migration readiness and write the plan to .abi-migration-plan.json in the repo
+      root. Assume: build_torch_version = the installed torch version,
+      target_torch_version = 2.12, and I want an INCREMENTAL migration cadence
+      (multiple PRs, legacy target stays green). Do not modify any source files and
+      do not ask me any questions — proceed with these answers. Finish with the
+      markdown chat summary.
+    fixture: "fixtures/full_repo_assessment"
+    tags:
+      - "smoke"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "assess-abi-migration"
+      - type: "file_exists"
+        path: ".abi-migration-plan.json"
+    checker: "checkers:check_full_repo_plan"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - >-
+            The chat summary states a migrateability verdict (yes /
+            yes-with-workarounds / no) and reports the build and target torch versions.
+          - >-
+            The chat summary lists the recommended sub-skills in dependency order
+            (pybind first, migrate-to-stable-apis last).
+        quality_factors:
+          - factor: >-
+              Summary covers files in scope with their concerns, coverage gaps or their
+              absence, and any blockers, in a way a maintainer could act on.
+            weight: 0.6
+          - factor: >-
+              Correctly notes that mixedext::already_faked_op already has a Python fake
+              and needs no meta-fn migration work.
+            weight: 0.4
+
+  - name: "coverage_gap_detection"
+    description: >-
+      Verifies gaps are detected by grepping the INSTALLED torch's stable headers:
+      empty_like exists (not a gap), TensorIterator is structurally absent (gap),
+      empty_strided has a documented workaround (new_empty + transpose).
+    user_message: >-
+      Assess this extension repo (current directory) for stable-ABI migration and
+      write the plan to .abi-migration-plan.json in the repo root. Assume:
+      build_torch_version = the installed torch version, target_torch_version = 2.12,
+      one-shot migration cadence. Pay particular attention to stable-ABI coverage
+      gaps: verify each candidate against the actually-installed torch's stable
+      headers, don't rely on memory. Do not modify any source files and do not ask me
+      any questions.
+    fixture: "fixtures/coverage_gap_detection"
+    tags:
+      - "coverage-gaps"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "assess-abi-migration"
+      - type: "file_exists"
+        path: ".abi-migration-plan.json"
+    checker: "checkers:check_coverage_gaps"
+
+  - name: "no_tests_blocker"
+    description: >-
+      Repo with no tests at all: Step 8 requires flagging the missing baseline test
+      signal as a blocker in the plan.
+    user_message: >-
+      Assess this extension repo (current directory) for stable-ABI migration and
+      write the plan to .abi-migration-plan.json in the repo root. Assume:
+      build_torch_version = the installed torch version, target_torch_version = 2.12,
+      one-shot migration cadence. Do not modify any source files and do not ask me
+      any questions.
+    fixture: "fixtures/no_tests_blocker"
+    tags:
+      - "edge"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "assess-abi-migration"
+      - type: "file_exists"
+        path: ".abi-migration-plan.json"
+    checker: "checkers:check_no_tests_blocker"
+
+  - name: "one_shot_readonly"
+    description: >-
+      Adversarial: one-shot cadence must omit scaffold-stable-target from
+      dispatch_order, and the skill must not modify any source file (sha256 manifest
+      comparison) — 'This skill does not modify code.'
+    user_message: >-
+      Assess this extension repo (current directory) for stable-ABI migration and
+      write the plan to .abi-migration-plan.json in the repo root. Assume:
+      build_torch_version = the installed torch version, target_torch_version = 2.12,
+      and ONE-SHOT migration cadence (single PR, convert in place). This is an audit
+      only — do not modify, reformat, or "fix" any source files, and do not ask me
+      any questions.
+    fixture: "fixtures/one_shot_readonly"
+    tags:
+      - "adversarial"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "assess-abi-migration"
+      - type: "file_exists"
+        path: ".abi-migration-plan.json"
+    checker: "checkers:check_one_shot_readonly"
