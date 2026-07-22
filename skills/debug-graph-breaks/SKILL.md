@@ -99,7 +99,7 @@ For each graph break, apply a fix based on its type. Always read the user's code
 
 When graph breaks originate in a third-party library (not the user's code), the user cannot directly modify the library. Instead:
 
-1. **Inspect the library source.** If the user provides the path to the installed package (e.g., the `transformers` site-packages directory), read the relevant source files to understand the problematic code and its call chain.
+1. **Inspect the library source.** If the user provides the path to the installed package (e.g., the `transformers` site-packages directory), read the relevant source files to understand the problematic code and its call chain.  Before proceeding further, check whether the graph break can be avoided by changing how the model is invoked.  For example, HuggingFace transformer models may have problems related to kv caching - try using a static cache or disabling the cache (in the case of a simple forward pass).
 
 2. **Subclass to override.** Create a subclass of the model that overrides the method causing the graph break with a compile-compatible implementation. This avoids modifying the library and is portable:
 ```python
