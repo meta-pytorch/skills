@@ -1,0 +1,39 @@
+eval_version: "1"
+skill_name: "torch-compile-logs"
+skill_path: "skills/torch-compile-logs/SKILL.md"
+
+models:
+  - "sonnet"
+
+test_cases:
+  - name: "collect_recompile_logs"
+    description: >
+      A compiled module recompiles on every step because a record_function label reads a
+      mutating int attribute. Tests that the skill actually collects logs (TORCH_TRACE +
+      tlparse, or TORCH_LOGS) and reports what they show: the compile ids and the failing
+      guard text, rather than reasoning from the source.
+    user_message: |
+      Please collect torch.compile logs for `repro.py` and summarize what they show
+      about how many times it compiled and why.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/record_function_recompile"
+    tags:
+      - "smoke"
+      - "logs"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "self.step =="
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Runs the script with TORCH_TRACE (parsing exactly one dedicated_log file with tlparse)
+            or with TORCH_LOGS including recompiles"
+          - "Reports five compilations of frame 0 ([0/0] through [0/4]) and quotes the failing
+            guard `self.step == N` from the logs"
+        quality_factors:
+          - factor: "Accuracy: ties the guard to the record_function f-string line printed with it"
+            weight: 1.0

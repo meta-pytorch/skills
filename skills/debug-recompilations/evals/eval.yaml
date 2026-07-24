@@ -1,0 +1,142 @@
+eval_version: "1"
+skill_name: "debug-recompilations"
+skill_path: "skills/debug-recompilations/SKILL.md"
+
+models:
+  - "sonnet"
+
+test_cases:
+  - name: "config_attr_recompile_unspec_int"
+    description: >
+      A single compiled callable is applied to several nn.Module instances that
+      share a hidden dim but differ in head count. Recompilation is driven by the
+      integer config attribute `n_heads`, which Dynamo specializes on by default.
+      Because `n_heads` only feeds arithmetic and view sizes (not graph structure),
+      one symbolic graph can handle every value. Tests that the skill first collects
+      logs (via the torch-compile-logs skill), ties the recompiles to the real guard
+      text, and recommends making `n_heads` symbolic (via dynamic_sources or
+      allow_unspec_int_on_nn_module) instead of declaring the recompiles unavoidable.
+    user_message: |
+      I'm compiling the model in `repro.py` with torch.compile and it's much slower
+      than I expected. Please figure out what's going on and tell me whether I can
+      fix it by changing my code.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/config_attr_recompile"
+    tags:
+      - "smoke"
+      - "recompilation"
+      - "fixable"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-recompilations"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "n_heads"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Identifies the recompilation cause as the `n_heads` guard, which differs across the
+            module instances"
+          - "Recognizes that `n_heads` only feeds arithmetic and view sizes, so the recompiles are
+            avoidable, and recommends making it symbolic: either listing it in
+            `torch.compiler.config.dynamic_sources` with a source name that matches (e.g.
+            `L['block']._modules['attn'].n_heads` or a regex like `.*n_heads`), or setting
+            `torch._dynamo.config.allow_unspec_int_on_nn_module = True` (with `dynamic=True`, or
+            noting that one extra recompile remains without it)"
+        quality_factors:
+          - factor: "Accuracy — explains the conditional rule: ints that only parameterize ops can
+              be symbolic, while ints that change graph structure (loop counts, branches,
+              indexing) must specialize"
+            weight: 0.4
+          - factor: "Notes that symbolic ints trade some kernel specialization for fewer compiles"
+            weight: 0.3
+          - factor: "Correctly counts the compilations (3 graphs, one per distinct n_heads value;
+              2 recompiles) and ties each recompile to its guard failure"
+            weight: 0.3
+
+  - name: "requires_grad_recompile_genuine"
+    description: >
+      A compiled MLP is called for a training step on an input with
+      requires_grad=True (the step uses the input gradients for a saliency map),
+      then for a validation pass on an input with requires_grad=False. The compiled
+      callable recompiles on the input tensor's requires_grad metadata. Tests that
+      the skill collects logs, attributes the recompile to the input's requires_grad
+      metadata (not to train/eval mode, grad mode, or autocast), and diagnoses it as
+      a genuine recompilation, since the input gradients are actually needed.
+    user_message: |
+      My torch.compile training script in `repro.py` seems to recompile partway
+      through. Please figure out why and tell me whether I can fix it by changing
+      my code.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/requires_grad_recompile"
+    tags:
+      - "smoke"
+      - "recompilation"
+      - "genuine"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-recompilations"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "requires_grad"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Identifies the cause as the requires_grad metadata of the input tensor `x` changing
+            between the training and validation calls, citing the requires_grad mismatch guard"
+          - "Concludes this is a genuine, expected recompilation because the training step uses the
+            input gradients (train_batch.grad), so the two variants need different graphs"
+        quality_factors:
+          - factor: "Accuracy — does not attribute the recompile to model.train()/model.eval(),
+              no_grad / grad mode, or autocast, which are guarded separately (e.g.
+              `GLOBAL_STATE changed: grad_mode`)"
+            weight: 0.5
+          - factor: "Identifies it as a single recompile tied to the requires_grad guard, not a
+              per-step recompilation loop"
+            weight: 0.5
+
+  - name: "record_function_recompile_fixable"
+    description: >
+      A model wraps its forward in a torch.profiler.record_function whose label is an
+      f-string embedding a mutating self.step counter, so Dynamo guards on self.step
+      and recompiles every step. Tests that the skill collects logs, then recognizes
+      this as a FIXABLE, profiling-only recompilation and recommends guarding the
+      record_function with torch.compiler.is_compiling() (or removing it), which does
+      not change model output.
+    user_message: |
+      My torch.compile model in `repro.py` recompiles on every step and never speeds
+      up. Please figure out why and tell me whether I can fix it by changing my code.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/record_function_recompile"
+    tags:
+      - "smoke"
+      - "recompilation"
+      - "fixable"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-recompilations"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "is_compiling"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Identifies the recompile is caused by the record_function f-string reading the
+            mutating self.step attribute"
+          - "Recognizes this is fixable and recommends guarding with torch.compiler.is_compiling()
+            or removing the record_function, noting it is profiling-only"
+        quality_factors:
+          - factor: "Accuracy — recognizes the guard is profiling/observational only and the fix
+              does not change model output or control flow"
+            weight: 0.5
+          - factor: "Actionability — gives a concrete code fix (wrap in is_compiling() or delete)"
+            weight: 0.5

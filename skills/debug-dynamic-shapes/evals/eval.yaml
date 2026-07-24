@@ -1,0 +1,190 @@
+eval_version: "1"
+skill_name: "debug-dynamic-shapes"
+skill_path: "skills/debug-dynamic-shapes/SKILL.md"
+
+models:
+  - "sonnet"
+
+test_cases:
+  - name: "mark_dynamic_seq_dim"
+    description: >
+      An encoder is compiled once and called with a fixed batch and hidden size but a
+      varying sequence length, so it recompiles on a size mismatch at the sequence
+      dimension. Tests that the skill collects logs, identifies the sequence dimension
+      as the one that varies, and recommends mark_dynamic on that dimension only —
+      leaving the batch and hidden dimensions static (marking the hidden dim dynamic
+      would fail, since it is specialized to the Linear width).
+    user_message: |
+      My torch.compile model in `repro.py` recompiles whenever the input sequence
+      length changes and it's slowing things down. Please figure out why and tell me
+      how to fix it.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/mark_dynamic_seq"
+    tags:
+      - "smoke"
+      - "dynamic-shapes"
+      - "mark_dynamic"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-dynamic-shapes"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "mark_dynamic"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Collects torch.compile logs by running the script rather than diagnosing from the source"
+          - "Identifies that only the sequence dimension (index 1) varies, while the batch (index 0)
+            and hidden (index 2) dimensions are constant"
+          - "Recommends mark_dynamic on the sequence dimension (dim 1) and keeps the batch and
+            hidden dimensions static rather than marking every dimension dynamic"
+        quality_factors:
+          - factor: "Accuracy — attributes the recompile to the index-1 size mismatch using the logs"
+            weight: 0.4
+          - factor: "Correctness — notes the hidden dimension must stay static (marking it dynamic
+              fails because it is specialized to the Linear width)"
+            weight: 0.4
+          - factor: "Does not indiscriminately recommend dynamic=True for all dimensions when precise
+              marking of one dimension suffices"
+            weight: 0.2
+
+  - name: "control_flow_on_size"
+    description: >
+      A model marks its sequence dimension dynamic but branches on that size
+      (`if s % 8 != 0`) to pad to a multiple of 8, which specializes the dynamic
+      symbol into aligned/unaligned buckets and produces extra graphs. Tests that the
+      skill collects logs, recognizes the size-dependent control flow is causing the
+      specialization, and recommends a branchless rewrite that preserves behavior.
+    user_message: |
+      I marked the sequence dimension of my torch.compile model in `repro.py` as
+      dynamic, but it still compiles more than once and doesn't behave like a single
+      dynamic graph. Please figure out why and tell me how to fix it.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/control_flow_on_size"
+    tags:
+      - "smoke"
+      - "dynamic-shapes"
+      - "specialization"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-dynamic-shapes"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "speciali"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Collects torch.compile logs by running the script rather than diagnosing from the source"
+          - "Identifies that the `if s % 8` control flow on the dynamic sequence size is causing the
+            specialization / extra graphs"
+          - "Recommends a branchless rewrite that preserves behavior (e.g. always pad by (-s) % 8) so
+            a single dynamic graph handles every sequence length"
+        quality_factors:
+          - factor: "Accuracy — connects the specialization to the size-dependent branch using the
+              logs (e.g. an Eq(Mod(s, 8), 0) guard added at the if statement)"
+            weight: 0.5
+          - factor: "Correctness — the proposed rewrite preserves the original padding behavior for
+              all sizes, including already-aligned inputs"
+            weight: 0.5
+
+  - name: "mark_dynamic_specialized"
+    description: >
+      An encoder marks every input dimension dynamic, but the hidden dimension is
+      fixed by the Linear and LayerNorm widths, so Dynamo specializes it and the first
+      call fails with a ConstraintViolationError. Tests that the skill collects logs,
+      identifies the hidden dimension (index 2) as the one that was specialized, and
+      recommends marking only the dimensions that actually vary rather than silencing
+      the error.
+    user_message: |
+      My torch.compile model in `repro.py` fails on the first call with a
+      ConstraintViolationError. I marked the input dimensions dynamic so it wouldn't
+      recompile when the batch size or sequence length changes. Please figure out why
+      it fails and tell me how to fix it.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/mark_dynamic_specialized"
+    tags:
+      - "smoke"
+      - "dynamic-shapes"
+      - "mark_dynamic"
+      - "constraint-violation"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-dynamic-shapes"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "speciali"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Collects torch.compile logs by running the script rather than diagnosing from the source"
+          - "Identifies that the hidden dimension (index 2) was specialized to 64 because it must
+            match the Linear / LayerNorm widths"
+          - "Recommends removing mark_dynamic from the hidden dimension while keeping the batch
+            (dim 0) and sequence (dim 1) dimensions dynamic"
+        quality_factors:
+          - factor: "Accuracy — attributes the failure to the ConstraintViolationError on
+              L['x'].size()[2] from the logs"
+            weight: 0.4
+          - factor: "Correctness — does not recommend maybe_mark_dynamic or dynamic=True on the
+              hidden dimension as the fix, since that only hides the specialization"
+            weight: 0.4
+          - factor: "Explains why the hidden dimension can't be dynamic (it is tied to the module's
+              parameter shapes)"
+            weight: 0.2
+
+  - name: "data_dependent_branch"
+    description: >
+      A masked mean-pooling module compiled with fullgraph=True branches on the length
+      of `torch.nonzero(mask[i])`, an unbacked size, so tracing fails with "Could not
+      guard on data-dependent expression u0 > 0". Tests that the skill collects logs,
+      recognizes the unbacked symbol and the branch that guards on it, and recommends a
+      rewrite that preserves behavior for rows with no valid tokens, rather than
+      guard_or_false or an unconditional torch._check.
+    user_message: |
+      My torch.compile model in `repro.py` fails with a UserError about a
+      data-dependent expression. I need it to compile as a single graph. Please figure
+      out why it fails and tell me how to fix it.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/data_dependent_branch"
+    tags:
+      - "smoke"
+      - "dynamic-shapes"
+      - "unbacked"
+      - "data-dependent"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "debug-dynamic-shapes"
+      - type: "skill_invoked"
+        skill: "torch-compile-logs"
+      - type: "output_contains_ci"
+        value: "unbacked"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Collects torch.compile logs by running the script rather than diagnosing from the source"
+          - "Identifies that `torch.nonzero(mask[i])` produces an unbacked size (u0) and that the
+            `if idx.shape[0] > 0` branch guards on it"
+          - "Recommends a fix that compiles as a single graph and preserves behavior for every input,
+            including rows where the mask is all False (which must pool to zeros) — e.g. a masked
+            sum divided by mask.sum().clamp(min=1), or torch.cond"
+        quality_factors:
+          - factor: "Correctness — does not recommend guard_or_false / guard_or_true, which silently
+              take one branch and change the result"
+            weight: 0.4
+          - factor: "Correctness — does not recommend torch._check(idx.shape[0] > 0), which fails at
+              runtime on the all-False row in the script"
+            weight: 0.3
+          - factor: "Quality — the rewrite is vectorized (removes the per-row loop and nonzero call)
+              rather than only patching the branch"
+            weight: 0.3
