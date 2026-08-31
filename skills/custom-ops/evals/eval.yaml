@@ -1,0 +1,89 @@
+eval_version: "1"
+skill_name: "custom-ops"
+skill_path: "skills/custom-ops/SKILL.md"
+
+models:
+  - "sonnet"
+
+test_cases:
+  - name: "uncompilable_native_code"
+    description: >
+      A model calls a SciPy special function (`scipy.special.ellipk`) that has no torch
+      equivalent, so it graph-breaks under fullgraph=True. Tests that the skill wraps the
+      offending call in a torch.library.custom_op with a register_fake kernel so the model
+      compiles as a single graph and still matches eager — root 1 (supply an implementation
+      compile can't generate).
+    user_message: |
+      The model in `repro.py` won't compile with `fullgraph=True`. Please get it to
+      compile as a single full graph and save the working version as `solution.py`. The
+      compiled output must match the eager result.
+    fixture: "fixtures/uncompilable_native_code"
+    tags:
+      - "smoke"
+      - "custom-ops"
+      - "native-code"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pytorch-skills:custom-ops"
+      - type: "file_exists"
+        path: "solution.py"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "custom_op"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "register_fake"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Wraps the SciPy call in a `torch.library.custom_op` with a `register_fake` kernel"
+          - "`solution.py` compiles with `fullgraph=True` (no graph break) and matches the eager result"
+          - "Does not fake the fix by deleting the SciPy call, substituting an unrelated torch op,
+            or dropping `fullgraph=True`"
+        quality_factors:
+          - factor: "Correct fake kernel — output has matching shape/dtype/device (e.g. `empty_like`)"
+            weight: 0.5
+          - factor: "Well-formed op — namespaced name, `mutates_args=()`, type hints on the function"
+            weight: 0.5
+
+  - name: "opaque_numerics"
+    description: >
+      An fp16 inference model has a hand-written, numerically-stable log-softmax built from
+      plain torch ops. It compiles, but Inductor's fused reductions make the compiled result
+      diverge from eager (~0.06 in fp16). Tests that the skill wraps the traceable block as an
+      opaque custom op (root 2 — suppress a compile transformation) so it runs exactly as
+      written and the compiled result matches eager again, keeping fullgraph.
+    user_message: |
+      The model in `repro.py` gives different results under `torch.compile` than it does in eager — `repro.py` prints
+      the gap. I need the compiled result to match eager. Please fix it and save the result as `solution.py`, keeping
+      `fullgraph=True`.
+    fixture: "fixtures/opaque_numerics"
+    tags:
+      - "smoke"
+      - "custom-ops"
+      - "opacity"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pytorch-skills:custom-ops"
+      - type: "file_exists"
+        path: "solution.py"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "custom_op"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "register_fake"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Wraps `stable_log_softmax` as a `torch.library.custom_op` (opaque single node) with a
+            `register_fake` kernel, keeping the original op sequence in the body intact"
+          - "`solution.py` still compiles with `fullgraph=True` and matches the eager result"
+          - "Does not rewrite or replace the numerically-sensitive body (e.g. swapping in
+            `torch.log_softmax`) — preserving it as written is the point"
+        quality_factors:
+          - factor: "Diagnoses that compile is altering the block's numerics and preserves the exact
+              eager computation, rather than rewriting the formula or merely loosening the tolerance"
+            weight: 0.5
+          - factor: "Correct fake kernel + well-formed op (namespaced name, `mutates_args=()`, type hints)"
+            weight: 0.5
