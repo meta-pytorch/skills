@@ -1,0 +1,92 @@
+eval_version: "1"
+skill_name: "higher-order-ops"
+skill_path: "skills/higher-order-ops/SKILL.md"
+
+models:
+  - "sonnet"
+
+test_cases:
+  - name: "cond_data_dependent_branch"
+    description: >
+      A model routes to one of two experts based on a data-dependent gate (`if x.mean() > 0`),
+      which graph-breaks under fullgraph=True. Tests that the skill rewrites the branch with
+      torch.cond so it compiles as a single graph and matches eager — and does not run both
+      experts unconditionally (e.g. via torch.where), since only the selected branch should run.
+    user_message: |
+      The model in `repro.py` won't compile with `fullgraph=True` — it picks one of two
+      experts based on the input, and only the selected expert should run. Please get it to
+      compile as a single full graph and save the working version as `solution.py`. The
+      compiled output must match the eager result.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/cond_routing"
+    tags:
+      - "smoke"
+      - "higher-order-ops"
+      - "cond"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pytorch-skills:higher-order-ops"
+      - type: "file_exists"
+        path: "solution.py"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "cond"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Rewrites the data-dependent branch using `torch.cond` (both branches as functions,
+            operands as a tuple)"
+          - "`solution.py` compiles with `fullgraph=True` (no graph break) and matches the eager result"
+          - "Preserves the routing semantics — only the selected expert runs; does not unconditionally
+            compute both branches (e.g. via `torch.where`) or drop `fullgraph=True`"
+        quality_factors:
+          - factor: "Chooses cond because only one branch should execute, and says so, rather than
+              applying it mechanically"
+            weight: 0.5
+          - factor: "Both branch functions return matching structure/shape/dtype and the operands are
+              threaded correctly"
+            weight: 0.5
+
+  - name: "while_loop_data_dependent_iteration"
+    description: >
+      A model iterates a fixed-point update (`x = cos(x)`) until a data-dependent tolerance is
+      met, so the Python while loop graph-breaks under fullgraph=True. Tests that the skill
+      rewrites it with torch.while_loop (pure cond_fn/body_fn over a carry) so it compiles as a
+      single graph and matches eager, without unrolling or specializing the iteration count.
+    user_message: |
+      The model in `repro.py` won't compile with `fullgraph=True` — it repeats an update until
+      the values converge, so the number of iterations depends on the input. Please get it to
+      compile as a single full graph without hard-coding or unrolling the iteration count, and
+      save the working version as `solution.py`. The compiled output must match the eager result.
+
+      To run python, first activate the pytorch-3.12 conda environment with
+      `conda activate pytorch-3.12`.
+    fixture: "fixtures/while_loop_iteration"
+    tags:
+      - "smoke"
+      - "higher-order-ops"
+      - "while_loop"
+    deterministic_checks:
+      - type: "skill_invoked"
+        skill: "pytorch-skills:higher-order-ops"
+      - type: "file_exists"
+        path: "solution.py"
+      - type: "file_contains"
+        path: "solution.py"
+        value: "while_loop"
+    llm_judge:
+      rubric:
+        critical_requirements:
+          - "Rewrites the loop using `torch.while_loop` with a `cond_fn`/`body_fn` over a carried tuple"
+          - "`solution.py` compiles with `fullgraph=True` and matches the eager result across inputs
+            that require different iteration counts"
+          - "Does not hard-code, cap, or unroll the iteration count, and does not replace the loop with
+            an unrelated closed form"
+        quality_factors:
+          - factor: "body_fn is pure and avoids input/output aliasing (e.g. returns `x.clone()` for a
+              carried-through value) so the HOP traces cleanly"
+            weight: 0.5
+          - factor: "cond_fn/body_fn operate over a correctly-threaded carry with stable shapes/dtypes"
+            weight: 0.5
